@@ -1,21 +1,72 @@
+@import url('https://fonts.cdnfonts.com/css/helvetica-neue-55');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-size-sm: 0.4rem;
+  --font-size-base: 0.6rem;
+  --font-size-lg: 0.8rem;
+  --font-size-xl: 1rem; 
+  --font-size-2xl: 1.2rem; 
+  --font-size-3xl: 1.4rem;
+  
+  --color-text: #000000;
+  --color-background: #ffffff;
+  
+  --font-family: 'Helvetica Neue', 'Helvetica Neue 55', Helvetica, Arial, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--color-text);
+    background-color: var(--color-background);
+    margin: 0;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  h1 {
+    font-size: var(--font-size-3xl);
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: 0.875rem;
+  }
+
+  h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    margin-bottom: 1rem;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+.light-text {
+  font-weight: 400;
+}
+
+/* Add this to your globals.css */
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+html, body {
+  height: 100%;
+  margin: 0; /* Ensure no default margin */
+  overflow: hidden; /* Prevent scrolling */
+}
+
+#sanity {
+  z-index: 99999;
 }
