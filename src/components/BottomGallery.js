@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Mux from '@mux/mux-player-react'
 
 export default function BottomGallery() {
@@ -211,7 +211,7 @@ export default function BottomGallery() {
   }, [projects.videoProjects, videosInitialized]);
   
   // Function to forcefully reset a video to its thumbnail state
-  const resetToThumbnail = (projectId, muxId, time) => {
+  const resetToThumbnail = useCallback((projectId, muxId, time) => {
     
     const videoElement = videoRefs.current[projectId];
     
@@ -228,12 +228,6 @@ export default function BottomGallery() {
     
     // Force set the thumbnail using our helper function
     forceSetThumbnail(muxId, time);
-    
-    // Attempt to directly manipulate the poster element
-    const posterImgs = Array.from(videoElement.querySelectorAll('img'))
-      .filter(img => img.src && (img.src.includes(muxId) || img.classList.contains('mux-poster')));
-    
-    
     
     // Try showing the poster by setting display properties
     const videoContainers = playerRef.current ? 
@@ -254,7 +248,7 @@ export default function BottomGallery() {
       detail: { projectId, muxId, time, timestamp: Date.now() }
     });
     videoElement.dispatchEvent(event);
-  };
+  }, [forceSetThumbnail]);
   
   // Effect to control video playback based on hover state
   useEffect(() => {
@@ -408,7 +402,7 @@ export default function BottomGallery() {
         };
       }
     }
-  }, [resetToThumbnail]);
+  }, []);
 
   if (!projects.videoProjects) return null;
   
@@ -417,20 +411,9 @@ export default function BottomGallery() {
       <div className="w-full overflow-x-auto overflow-y-hidden">
         <div className="flex gap-2">
           {projects.videoProjects.map((project) => {
-            // Calculate start and end times for the video loop
-            const startTime = project.video?.hoverPreview?.startTime 
-              ? timeToSeconds(project.video.hoverPreview.startTime) 
-              : 0;
-            
-            const endTime = project.video?.hoverPreview?.endTime 
-              ? timeToSeconds(project.video.hoverPreview.endTime) 
-              : undefined;
-            
             // Get the custom thumbnail time
             const thumbTime = project.thumbTime || project.video?.asset?.thumbTime || 0;
 
-            
-            
             return (
             <Link 
               href={`/video-project/${project.slug}`}
