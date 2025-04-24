@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { client } from '../../../sanity/lib/client'
 import { groq } from 'next-sanity'
 import Link from 'next/link'
