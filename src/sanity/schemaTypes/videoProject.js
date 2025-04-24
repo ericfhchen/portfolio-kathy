@@ -39,19 +39,15 @@ export const videoProjects = defineType({
       description: 'This will be displayed below the client name on projects. i.e. "Social Campaign"',
     }),
     defineField({
-      name: 'coverImage',
-      type: 'image',
-    }),
-    defineField({
       name: 'credits',
       type: 'array',
       of: [{type: 'block'}]
     }),
 
-    // Video Field 
+    // Cover Video Field 
     defineField({
       name: 'video',
-      title: 'Project Video',
+      title: 'Cover Video',
       type: 'object',
       fields: [
         {
@@ -75,16 +71,16 @@ export const videoProjects = defineType({
             source: 'asset.playbackId'
           }
         },
-        {
-          name: 'assetDebug',
-          title: 'Video Asset Debug (Read-only)',
-          type: 'string',
-          readOnly: true,
-          description: 'For debugging purposes only',
-          initialValue: 'Check asset value',
-          // This is used to show the actual asset data in the studio
-          hidden: ({ parent }) => !parent?.asset,
-        },
+        // {
+        //   name: 'assetDebug',
+        //   title: 'Video Asset Debug (Read-only)',
+        //   type: 'string',
+        //   readOnly: true,
+        //   description: 'For debugging purposes only',
+        //   initialValue: 'Check asset value',
+        //   // This is used to show the actual asset data in the studio
+        //   hidden: ({ parent }) => !parent?.asset,
+        // },
         {
           name: 'hoverPreview',
           title: 'Hover Preview Settings',
@@ -155,7 +151,56 @@ export const videoProjects = defineType({
           }
         }
       ]
-    })
+    }),
+    // Video Gallery Field
+    defineField({
+      name: 'videoGallery',
+      title: 'Video Gallery',
+      description: 'Add multiple videos that will be displayed in a carousel',
+      type: 'array',
+      of: [
+        {
+          type: 'object',
+          title: 'Gallery Video',
+          fields: [
+            {
+              name: 'asset',
+              title: 'Video',
+              type: 'mux.video',
+              description: 'Upload a video file or provide a URL to a video file.',
+              options: {
+                hotspot: true,
+                storeOriginalFilename: true
+              }
+            },
+            {
+              name: 'caption',
+              title: 'Caption',
+              type: 'string',
+              description: 'Optional caption for this video'
+            }
+          ],
+          preview: {
+            select: {
+              playbackId: 'asset.playbackId',
+              title: 'caption'
+            },
+            prepare({playbackId, title}) {
+              return {
+                title: title || 'Gallery Video',
+                media: playbackId 
+                  ? `https://image.mux.com/${playbackId}/thumbnail.jpg?time=0` 
+                  : undefined
+              }
+            }
+          }
+        }
+      ],
+      options: {
+        layout: 'grid'
+      }
+    }),
+    
   ],
   preview: {
     select: {

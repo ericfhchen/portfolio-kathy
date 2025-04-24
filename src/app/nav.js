@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { navEvents } from '../components/NavOverlay';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 export default function Nav({ contained = false }) {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
@@ -32,7 +33,7 @@ export default function Nav({ contained = false }) {
         <div className="w-full">
           <nav className="flex justify-between items-center w-full">
             <div className="text-left pr-2 pt-2 pb-2">
-              <a href="/">Kathy Nguyen</a>
+              <Link href="/">Kathy Nguyen</Link>
             </div>
             <div className="text-right pl-2 pt-2 pb-2 cursor-pointer" onClick={toggleOverlay}>
               {isOverlayOpen ? '(CLOSE)' : 'Info'}
@@ -47,7 +48,7 @@ export default function Nav({ contained = false }) {
   return (
     <nav className="flex justify-between items-center w-full">
       <div className="text-left pr-2 pt-2 pb-2">
-        <a href="/">Kathy Nguyen</a>
+        <Link href="/">Kathy Nguyen</Link>
       </div>
       <div className="text-right pl-2 pt-2 pb-2 cursor-pointer" onClick={toggleOverlay}>
         {isOverlayOpen ? '(CLOSE)' : 'Info'}

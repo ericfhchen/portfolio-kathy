@@ -303,7 +303,7 @@ export default function BottomGallery() {
         };
       }
     }
-  }, [hoveredProject, projects.videoProjects]);
+  }, [hoveredProject, projects.videoProjects, resetToThumbnail]);
 
   useEffect(() => {
     if (playerRef.current) {
@@ -408,7 +408,7 @@ export default function BottomGallery() {
         };
       }
     }
-  }, [playerRef.current]);
+  }, [resetToThumbnail]);
 
   if (!projects.videoProjects) return null;
   

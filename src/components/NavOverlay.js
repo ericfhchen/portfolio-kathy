@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { client } from '../sanity/lib/client';
 import { groq } from 'next-sanity';
+import Link from 'next/link';
 
 // Create a simple event system for cross-component communication
 let overlayListeners = [];
@@ -67,7 +68,7 @@ export default function NavOverlay() {
             {/* Bio section */}
             <div className="flex flex-col w-1/3 mr-20">
               <div className="text-left pt-2">
-                <a href="/">Kathy Nguyen</a>
+                <Link href="/">Kathy Nguyen</Link>
               </div>
             </div>
 
@@ -101,9 +102,9 @@ export default function NavOverlay() {
               {clients.map(client => (
                 <div key={client._id}>
                   {client.link ? (
-                    <a href={client.link} target="_blank" rel="noopener noreferrer">
+                    <Link href={client.link} target="_blank" rel="noopener noreferrer">
                       {client.title}
-                    </a>
+                    </Link>
                   ) : (
                     <span>{client.title}</span>
                   )}
@@ -117,7 +118,7 @@ export default function NavOverlay() {
                 Booking and commissions are currently open. contact@kathymnguyen.com
               </div>
               <div className="mt-2">
-                <a href="https://www.instagram.com/recognizekat" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <Link href="https://www.instagram.com/recognizekat" target="_blank" rel="noopener noreferrer">Instagram</Link>
               </div>
             </div>
           </div>
@@ -131,7 +132,7 @@ export default function NavOverlay() {
               ©{new Date().getFullYear()} KATHY NGUYEN
             </div>
             <div className="flex flex-col w-1/2">
-              <span>Website by <a href="https://www.left.systems" target="_blank" rel="noopener noreferrer">LEFT</a></span>
+              <span>Website by <Link href="https://www.left.systems" target="_blank" rel="noopener noreferrer">LEFT</Link></span>
             </div>
           </div>
         </div>
