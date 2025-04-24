@@ -29,18 +29,21 @@ export default function Nav({ contained = false }) {
   // If used directly without the wrapper container
   if (!contained) {
     return (
-      <div className={`fixed inset-0 flex items-center p-2.5 ${isStudioPage ? 'z-[0]' : 'z-[9]'}`}>
-        <div className="w-full">
-          <nav className="flex justify-between items-center w-full">
-            <div className="text-left pr-2 pt-2 pb-2">
-              <Link href="/">Kathy Nguyen</Link>
-            </div>
-            <div className="text-right pl-2 pt-2 pb-2 cursor-pointer" onClick={toggleOverlay}>
-              {isOverlayOpen ? '(CLOSE)' : 'Info'}
-            </div>
-          </nav>
+      <>
+        {/* Left side button - fixed at the left edge, vertically centered */}
+        <div className={`fixed left-0 top-1/2 transform -translate-y-1/2 p-2.5 ${isStudioPage ? 'z-[0]' : 'z-[9]'}`}>
+          <div className="text-left pr-2 pt-2 pb-2">
+            <Link href="/">Kathy Nguyen</Link>
+          </div>
         </div>
-      </div>
+        
+        {/* Right side button - fixed at the right edge, vertically centered */}
+        <div className={`fixed right-0 top-1/2 transform -translate-y-1/2 p-2.5 ${isStudioPage ? 'z-[0]' : 'z-[9]'}`}>
+          <div className="text-right pl-2 pt-2 pb-2 cursor-pointer" onClick={toggleOverlay}>
+            {isOverlayOpen ? '(CLOSE)' : 'Info'}
+          </div>
+        </div>
+      </>
     );
   }
 

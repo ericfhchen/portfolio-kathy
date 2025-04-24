@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation'
 export default function RootLayout({ children }) {
   const pathname = usePathname()
   const isStudioPage = pathname?.startsWith('/studio')
+  const isHomePage = pathname === '/'
   
   return (
     <html lang="en">
@@ -22,11 +23,16 @@ export default function RootLayout({ children }) {
         {/* Navigation Overlay - positioned outside the nav component */}
         <NavOverlay />
         
-        {/* Only render galleries when not on Sanity Studio pages */}
+        {/* Render GalleryProvider and ProjectInfo when not on Sanity Studio pages */}
         {!isStudioPage && (
           <GalleryProvider>
-            <TopGallery />
-            <BottomGallery />
+            {/* Only render galleries on the homepage */}
+            {isHomePage && (
+              <>
+                <TopGallery />
+                <BottomGallery />
+              </>
+            )}
             <ProjectInfo />
           </GalleryProvider>
         )}
