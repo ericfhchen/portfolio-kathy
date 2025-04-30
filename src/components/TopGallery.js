@@ -7,7 +7,11 @@ import { useGalleryContext } from './GalleryContext'
 export default function TopGallery() {
   const { projects, hoveredProject, handleProjectHover, handleProjectLeave } = useGalleryContext()
 
-  if (!projects.imageProjects) return null
+  if (!projects.imageProjects || projects.imageProjects.length === 0) {
+    return <div className="top-gallery absolute left-0 right-0 px-2.5 z-[9]">
+      
+    </div>
+  }
   
   return (
     <div className="top-gallery absolute left-0 right-0 px-2.5 z-[9]">

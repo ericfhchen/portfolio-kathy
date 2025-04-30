@@ -23,12 +23,13 @@ export function GalleryProvider({ children }) {
       try {
         // Fetch image projects for the top gallery
         const imageProjects = await client.fetch(groq`
-          *[_type == "imageProjects"] {
+          *[_type == "imageProjects" && featured == true] | order(orderRank) {
             _id,
             name,
             "slug": slug.current,
             "coverImage": coverImage.asset->url,
             projectTagline,
+            featured,
             client->{
               title
             }
@@ -37,7 +38,7 @@ export function GalleryProvider({ children }) {
         
         // Fetch video projects for the bottom gallery
         const videoProjects = await client.fetch(groq`
-          *[_type == "videoProjects"] {
+          *[_type == "videoProjects" && featured == true] | order(orderRank) {
             _id,
             name,
             "slug": slug.current,

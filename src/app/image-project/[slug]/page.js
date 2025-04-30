@@ -30,6 +30,7 @@ export default async function ImageProjectPage({ params }) {
         "slug": slug.current,
         "images": images[].asset->url,
         credits,
+        orderRank,
         client->{
           title,
           link
@@ -41,7 +42,7 @@ export default async function ImageProjectPage({ params }) {
 
     // Fetch the next project for navigation
     const nextProject = await client.fetch(
-      groq`*[_type == "imageProjects" && _id > $projectId] | order(_id asc) [0] {
+      groq`*[_type == "imageProjects" && orderRank > $currentOrderRank] | order(orderRank) [0] {
         _id,
         name,
         "slug": slug.current,
@@ -49,12 +50,12 @@ export default async function ImageProjectPage({ params }) {
           title
         }
       }`,
-      { projectId: project._id }
+      { currentOrderRank: project.orderRank }
     )
 
     // If no next project, try to get the first project (loop back)
     const firstProject = !nextProject ? await client.fetch(
-      groq`*[_type == "imageProjects"] | order(_id asc) [0] {
+      groq`*[_type == "imageProjects"] | order(orderRank) [0] {
         _id,
         name,
         "slug": slug.current,

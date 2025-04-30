@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { client } from '../../../sanity/lib/client'
 import { groq } from 'next-sanity'
+import Link from 'next/link'
 
 export default async function VideoProjectPage({ params }) {
   const { slug } = params
@@ -17,6 +18,7 @@ export default async function VideoProjectPage({ params }) {
         coverVideo,
         credits,
         "images": images[].asset->url,
+        orderRank,
         client->{
           title,
           link
@@ -32,6 +34,34 @@ export default async function VideoProjectPage({ params }) {
         </div>
       )
     }
+
+    // Fetch the next project for navigation
+    const nextProject = await client.fetch(
+      groq`*[_type == "videoProjects" && orderRank > $currentOrderRank] | order(orderRank) [0] {
+        _id,
+        name,
+        "slug": slug.current,
+        client->{
+          title
+        }
+      }`,
+      { currentOrderRank: project.orderRank }
+    )
+
+    // If no next project, try to get the first project (loop back)
+    const firstProject = !nextProject ? await client.fetch(
+      groq`*[_type == "videoProjects"] | order(orderRank) [0] {
+        _id,
+        name,
+        "slug": slug.current,
+        client->{
+          title
+        }
+      }`
+    ) : null
+
+    // Use the next project or loop back to the first project
+    const navigationProject = nextProject || firstProject
 
     return (
       <div className="p-2 overflow-y-auto h-[calc(100svh-8rem)]">
@@ -113,6 +143,21 @@ export default async function VideoProjectPage({ params }) {
                   : '' 
               }} />
             </div>
+          </div>
+        )}
+        
+        {/* Next project navigation */}
+        {navigationProject && (
+          <div className="mt-8 flex justify-end">
+            <Link
+              href={`/video-project/${navigationProject.slug}`}
+              className="flex items-center hover:opacity-70 transition-opacity"
+            >
+              <span className="leading-[1]">{navigationProject.client?.title || navigationProject.name}</span>
+              <svg width="9" height="10" viewBox="0 0 9 10" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-1">
+                <path d="M4.52521 9.47763L3.53658 8.49751L6.13175 5.90234H0.0507812V4.462H6.13175L3.53658 1.87109L4.52521 0.886719L8.82067 5.18217L4.52521 9.47763Z" fill="black"/>
+              </svg>
+            </Link>
           </div>
         )}
       </div>

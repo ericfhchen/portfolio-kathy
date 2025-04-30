@@ -11,6 +11,13 @@ export default function BottomGallery() {
   const [videosInitialized, setVideosInitialized] = useState({});
   const playerRef = useRef(null);
 
+  // If no video projects are available or the array is empty, show a message
+  if (!projects.videoProjects || projects.videoProjects.length === 0) {
+    return <div className="bottom-gallery absolute bottom-0 left-0 right-0 px-2.5 z-[9]">
+      
+    </div>
+  }
+
   // Debug logging
   useEffect(() => {
     if (projects?.videoProjects) {

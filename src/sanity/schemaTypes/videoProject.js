@@ -12,10 +12,32 @@ export const videoProjects = defineType({
   name: 'videoProjects',
   title: 'Video Projects',
   type: 'document',
+  orderings: [
+    {
+      title: 'Manual Order',
+      name: 'orderingAsc',
+      by: [
+        {field: 'orderRank', direction: 'asc'}
+      ]
+    }
+  ],
   fields: [
     defineField({
       name: 'name',
       type: 'string',
+    }),
+    defineField({
+      name: 'orderRank',
+      title: 'Order Rank',
+      type: 'string',
+      hidden: true,
+    }),
+    defineField({
+      name: 'featured',
+      title: 'Featured Project',
+      type: 'boolean',
+      description: 'Toggle to feature this project in the bottom carousel',
+      initialValue: false,
     }),
     defineField({
       name: 'slug',
