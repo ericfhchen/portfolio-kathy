@@ -19,8 +19,6 @@ export function GalleryProvider({ children }) {
   const [hoveredProject, setHoveredProject] = useState(null)
   const topGalleryRef = useRef(null);
   const bottomGalleryRef = useRef(null);
-  const topScrollContainerRef = useRef(null);
-  const bottomScrollContainerRef = useRef(null);
 
   // Register refs for galleries to enable global wheel event handling
   const registerTopGallery = (ref) => {
