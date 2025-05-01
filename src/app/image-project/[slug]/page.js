@@ -1,7 +1,9 @@
 import { client } from '../../../sanity/lib/client'
 import { groq } from 'next-sanity'
-import Link from 'next/link'
 import ImageGallery from '../../../components/ImageGallery'
+import MobileScroll from '../../../components/MobileScroll'
+import CreditsOverlay from '../../../components/CreditsOverlay'
+import Link from 'next/link'
 
 export async function generateMetadata({ params }) {
   const { slug } = params
@@ -77,9 +79,12 @@ export default async function ImageProjectPage({ params }) {
     }
 
     return (
-      <div className="relative h-screen">
+      <div className="relative md:h-screen h-auto">
+        {/* Mobile Scroll Handler */}
+        <MobileScroll />
+        
         {/* Header with client and tagline */}
-        <div className="fixed top-2.5 left-0 right-0 z-10">
+        <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-8">
           {project.client && (
             <div className="text-center">
               {project.client.link ? (
@@ -99,21 +104,9 @@ export default async function ImageProjectPage({ params }) {
         {/* Client component for interactive gallery */}
         <ImageGallery images={project.images} name={project.name} />
 
-        {/* Credits section - anchored to bottom left */}
+        {/* Credits section with overlay for mobile */}
         {project.credits && (
-          <div className="fixed bottom-0 left-0 p-2.5 max-w-xs z-10">
-            <div className="">
-              <div className="uppercase mb-1">Credits</div>
-              <div className="prose">
-                {/* This would need a proper Portable Text renderer */}
-                <div dangerouslySetInnerHTML={{ 
-                  __html: Array.isArray(project.credits) 
-                    ? project.credits.map(block => block.children?.map(child => child.text).join(' ')).join('<br />') 
-                    : '' 
-                }} />
-              </div>
-            </div>
-          </div>
+          <CreditsOverlay credits={project.credits} />
         )}
 
         {/* Next project navigation - anchored to bottom right */}

@@ -45,16 +45,16 @@ export default function ImageGallery({ images, name }) {
       </div>
       
       {/* Navigation buttons */}
-      <div className="fixed bottom-0 left-0 right-0 mb-4 flex justify-center gap-8">
+      <div className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8">
         <button 
           onClick={goToPrevImage} 
-          className="uppercase hover:opacity-60 transition-opacity"
+          className="uppercase hover:opacity-60 transition-opacity leading-[1]"
         >
           Prev
         </button>
         <button 
           onClick={goToNextImage} 
-          className="uppercase hover:opacity-60 transition-opacity"
+          className="uppercase hover:opacity-60 transition-opacity leading-[1]"
         >
           Next
         </button>
