@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useState, useEffect, useContext } from 'react'
+import { createContext, useState, useEffect, useContext, useRef } from 'react'
 import { client } from '../sanity/lib/client'
 import { groq } from 'next-sanity'
 
@@ -17,6 +17,87 @@ export function GalleryProvider({ children }) {
   const [projects, setProjects] = useState({ imageProjects: [], videoProjects: [] })
   const [loading, setLoading] = useState(true)
   const [hoveredProject, setHoveredProject] = useState(null)
+  const topGalleryRef = useRef(null);
+  const bottomGalleryRef = useRef(null);
+  const topScrollContainerRef = useRef(null);
+  const bottomScrollContainerRef = useRef(null);
+
+  // Register refs for galleries to enable global wheel event handling
+  const registerTopGallery = (ref) => {
+    topGalleryRef.current = ref;
+  };
+
+  const registerBottomGallery = (ref) => {
+    bottomGalleryRef.current = ref;
+  };
+
+  // Global wheel event handler
+  useEffect(() => {
+    // Function to find the scroll container inside a gallery
+    const findScrollContainer = (galleryRef) => {
+      if (!galleryRef) return null;
+      
+      // Look for direct children with overflow-x-auto class
+      const directScrollContainer = Array.from(galleryRef.children)
+        .find(child => 
+          child.classList && 
+          (child.classList.contains('overflow-x-auto') || 
+           child.classList.contains('scrollbar-hide'))
+        );
+        
+      if (directScrollContainer) return directScrollContainer;
+      
+      // If not found directly, try to find it deeper
+      return galleryRef.querySelector('.overflow-x-auto') || 
+             galleryRef.querySelector('.scrollbar-hide');
+    };
+
+    const handleGlobalWheel = (e) => {
+      // Don't process if scrolling is disabled
+      if (e.ctrlKey) return; // Allow zooming with ctrl+wheel
+      
+      // Check if the event target is within the top gallery
+      if (topGalleryRef.current && (
+          topGalleryRef.current === e.target || 
+          topGalleryRef.current.contains(e.target))) {
+        e.preventDefault();
+        
+        // Find the actual scroll container
+        const scrollContainer = findScrollContainer(topGalleryRef.current);
+        
+        if (scrollContainer) {
+          const scrollDelta = e.deltaX || e.deltaY * 1.5;
+          scrollContainer.scrollLeft += scrollDelta;
+          console.log('Global wheel: scrolling top gallery', scrollDelta);
+        }
+        return;
+      }
+      
+      // Check if the event target is within the bottom gallery
+      if (bottomGalleryRef.current && (
+          bottomGalleryRef.current === e.target || 
+          bottomGalleryRef.current.contains(e.target))) {
+        e.preventDefault();
+        
+        // Find the actual scroll container
+        const scrollContainer = findScrollContainer(bottomGalleryRef.current);
+        
+        if (scrollContainer) {
+          const scrollDelta = e.deltaX || e.deltaY * 1.5;
+          scrollContainer.scrollLeft += scrollDelta;
+          console.log('Global wheel: scrolling bottom gallery', scrollDelta);
+        }
+        return;
+      }
+    };
+
+    // Add global wheel event listener
+    window.addEventListener('wheel', handleGlobalWheel, { passive: false, capture: true });
+    
+    return () => {
+      window.removeEventListener('wheel', handleGlobalWheel, { capture: true });
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchProjects() {
@@ -131,7 +212,9 @@ export function GalleryProvider({ children }) {
     loading,
     hoveredProject,
     handleProjectHover,
-    handleProjectLeave
+    handleProjectLeave,
+    registerTopGallery,
+    registerBottomGallery
   }
 
   return (

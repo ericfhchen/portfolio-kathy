@@ -31,9 +31,9 @@ export default function RootLayout({ children }) {
               <>
                 <TopGallery />
                 <BottomGallery />
+                <ProjectInfo />
               </>
             )}
-            <ProjectInfo />
           </GalleryProvider>
         )}
         

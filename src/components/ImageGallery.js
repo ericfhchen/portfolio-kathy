@@ -29,8 +29,8 @@ export default function ImageGallery({ images, name }) {
       {/* Images gallery - one image at a time with click navigation */}
       <div className="fixed inset-0 flex items-center justify-center">
         <div 
-          className="w-[75vw] flex items-center justify-center cursor-pointer"
-          style={{ height: "75vh" }}
+          className="w-[100vw] h-[85vh] md:w-[75vw] md:h-[75vh] flex items-center justify-center cursor-pointer"
+          
           onClick={goToNextImage}
         >
           <Image
