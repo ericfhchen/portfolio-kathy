@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useState, useRef, useEffect } from 'react'
+// import { useState, useRef, useEffect } from 'react'
 import Mux from '@mux/mux-player-react'
 import Image from 'next/image'
 
@@ -103,7 +103,7 @@ export default function BottomGallery() {
           try {
             videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
             videoElement._timeUpdateHandler = null;
-          } catch (e) {
+          } catch (_) {
             // Ignore errors during cleanup
           }
         }
@@ -140,11 +140,11 @@ export default function BottomGallery() {
           }
           
           // Play the video
-          videoEl.play().catch(err => {
+          videoEl.play().catch(_ => {
             // Silent error handling
           });
         }
-      } catch (error) {
+      } catch (_) {
         // Silent error handling
       }
     });

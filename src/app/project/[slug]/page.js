@@ -4,8 +4,6 @@ import ImageGallery from '../../../components/ImageGallery'
 import VideoGallery from '../../../components/VideoGallery'
 import CreditsOverlay from '../../../components/CreditsOverlay'
 import Link from 'next/link'
-import Image from 'next/image'
-import MuxPlayer from '@mux/mux-player-react'
 
 export async function generateMetadata({ params }) {
   const { slug } = params
