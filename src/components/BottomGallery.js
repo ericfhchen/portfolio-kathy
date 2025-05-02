@@ -103,7 +103,7 @@ export default function BottomGallery() {
           try {
             videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
             videoElement._timeUpdateHandler = null;
-          } catch (_) {
+          } catch {
             // Ignore errors during cleanup
           }
         }
@@ -140,11 +140,11 @@ export default function BottomGallery() {
           }
           
           // Play the video
-          videoEl.play().catch(_ => {
+          videoEl.play().catch(() => {
             // Silent error handling
           });
         }
-      } catch (_) {
+      } catch {
         // Silent error handling
       }
     });
