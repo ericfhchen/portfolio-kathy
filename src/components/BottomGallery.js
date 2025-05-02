@@ -4,250 +4,184 @@ import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
 import { useState, useRef, useEffect } from 'react'
 import Mux from '@mux/mux-player-react'
+import Image from 'next/image'
 
 export default function BottomGallery() {
   const { projects, hoveredProject, handleProjectHover, handleProjectLeave, registerBottomGallery } = useGalleryContext()
   const videoRefs = useRef({});
-  const [videosInitialized, setVideosInitialized] = useState({});
-  const playerRef = useRef(null);
-  const scrollContainerRef = useRef(null);
   const galleryRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   
-  // Register this gallery's scroll container with the context
+  // Register this gallery's container with the context
   useEffect(() => {
     if (galleryRef.current) {
       registerBottomGallery(galleryRef.current);
     }
   }, [registerBottomGallery]);
   
-  // Use refs for utility functions to avoid dependency issues
-  const utils = useRef({
-    timeToSeconds: (timeStr) => {
+  // Helper to convert time string (MM:SS or MM:SS.mm) to seconds
+  const timeToSeconds = (timeStr) => {
       if (!timeStr) return 0;
+    
+    // Handle MM:SS format
+    if (timeStr.includes(':') && !timeStr.includes('.')) {
       const [minutes, seconds] = timeStr.split(':').map(Number);
       return minutes * 60 + seconds;
-    },
-    
-    forceSetThumbnail: (muxId, time) => {
-      if (!playerRef.current) return false;
-      
-      const videoEl = playerRef.current.querySelector('video');
-      if (!videoEl) {
-        console.error('Video element not found in player');
-        return false;
-      }
-      
-      try {
-        // Set the video's current time
-        videoEl.currentTime = time;
-        console.log('Set video currentTime to:', time);
-        
-        // Find and update poster elements
-        const elements = playerRef.current.querySelectorAll('img');
-        let posterElement = null;
-        
-        elements.forEach(el => {
-          if (el.src && el.src.includes(muxId)) {
-            posterElement = el;
-          }
-        });
-        
-        if (posterElement) {
-          // Update the src to include the time parameter
-          if (posterElement.src.includes('?')) {
-            if (posterElement.src.includes('time=')) {
-              posterElement.src = posterElement.src.replace(/time=\d+(\.\d+)?/, `time=${time}`);
-            } else {
-              posterElement.src = `${posterElement.src}&time=${time}`;
-            }
-          } else {
-            posterElement.src = `${posterElement.src}?time=${time}`;
-          }
-        }
-        
-        return true;
-      } catch (error) {
-        console.error('Error while forcing thumbnail update:', error);
-        return false;
-      }
-    },
-    
-    resetToThumbnail: (projectId, muxId, time) => {
-      const videoElement = videoRefs.current[projectId];
-      
-      if (!videoElement) {
-        console.error(`Video element for project ${projectId} not found`);
-        return;
-      }
-      
-      // Pause the video and set time
-      videoElement.pause();
-      videoElement.currentTime = time;
-      
-      // Force set the thumbnail
-      utils.current.forceSetThumbnail(muxId, time);
     }
-  });
-
-  // Debug logging for projects
-  useEffect(() => {
-    if (projects?.videoProjects) {
-      projects.videoProjects.forEach(project => {
-        console.log(`Project ${project.name} thumbTime:`, project.thumbTime);
-        console.log(`Project ${project.name} video.asset.thumbTime:`, project.video?.asset?.thumbTime);
-      });
+    
+    // Handle MM:SS.mm format
+    if (timeStr.includes(':') && timeStr.includes('.')) {
+      const [minutePart, secondPart] = timeStr.split(':');
+      const minutes = Number(minutePart);
+      const [seconds, milliseconds] = secondPart.split('.').map(Number);
+      return minutes * 60 + seconds + (milliseconds / 100);
     }
-  }, [projects?.videoProjects]);
+    
+    // If it's just a number, return it
+    return Number(timeStr);
+  };
 
-  // Initialize videos with thumbnails
+  // Get the thumbnail time from project data
+  const getThumbTime = (project) => {
+    // Check for thumb time in the dedicated cover video first
+    if (project.coverVideo?.thumbTime !== undefined) {
+      return project.coverVideo.thumbTime;
+    }
+    
+    // Check for thumb time in the video asset
+    if (project.video?.asset?.thumbTime !== undefined) {
+      return project.video.asset.thumbTime;
+    }
+    
+    // Then check project's own thumb time as fallback
+    if (project.thumbTime !== undefined) {
+      return project.thumbTime;
+    }
+    
+    // Fallback to 0
+    return 0;
+  };
+  
+  // Handle playing videos on hover
   useEffect(() => {
     if (!projects.videoProjects) return;
     
-    const initializeVideos = () => {
-      const newInitializedState = {...videosInitialized};
+    // For each project video element
+    Object.keys(videoRefs.current).forEach(projectId => {
+      const videoElement = videoRefs.current[projectId];
+      const project = projects.videoProjects.find(p => p._id === projectId);
       
-      projects.videoProjects.forEach(project => {
-        if (project.video?.asset?.playbackId) {
-          const videoElement = videoRefs.current[project._id];
-          if (videoElement) {
-            const thumbTime = project.thumbTime || project.video?.asset?.thumbTime || 0;
-            utils.current.forceSetThumbnail(project.video.asset.playbackId, thumbTime);
-            newInitializedState[project._id] = true;
+      if (!project || !videoElement) return;
+      
+      // Make sure we have a valid playback ID
+      const playbackId = project.video?.asset?.playbackId;
+      if (!playbackId) return;
+      
+      // Is this the hovered project?
+      const isHovered = hoveredProject?._id === projectId;
+      
+      try {
+        // Find the actual video element
+        let videoEl = null;
+        if (videoElement.shadowRoot) {
+          videoEl = videoElement.shadowRoot.querySelector('video');
+        }
+        if (!videoEl) {
+          videoEl = videoElement.querySelector('video');
+        }
+        if (!videoEl && videoElement.mediaController) {
+          videoEl = videoElement.mediaController.media;
+        }
+        
+        // If we can't find the video element, just use the Mux component
+        if (!videoEl) {
+          videoEl = videoElement;
+        }
+        
+        // Clean up any previous event listeners
+        if (videoElement._timeUpdateHandler) {
+          try {
+            videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
+            videoElement._timeUpdateHandler = null;
+          } catch (e) {
+            // Ignore errors during cleanup
           }
         }
-      });
-      
-      if (Object.keys(newInitializedState).length > Object.keys(videosInitialized).length) {
-        setVideosInitialized(newInitializedState);
-      }
-    };
-    
-    initializeVideos();
-    const timers = [
-      setTimeout(initializeVideos, 100),
-      setTimeout(initializeVideos, 500),
-      setTimeout(initializeVideos, 1000),
-      setTimeout(initializeVideos, 2000)
-    ];
-    
-    return () => timers.forEach(timer => clearTimeout(timer));
-  }, [projects.videoProjects, videosInitialized]);
-  
-  // Handle hover state for videos
-  useEffect(() => {
-    // Reset non-hovered videos to thumbnail
-    Object.keys(videoRefs.current).forEach(id => {
-      const project = projects.videoProjects.find(p => p._id === id);
-      
-      if (project && project.video?.asset?.playbackId) {
-        const thumbTime = project.thumbTime || project.video?.asset?.thumbTime || 0;
         
-        if (!hoveredProject || hoveredProject._id !== id) {
-          utils.current.resetToThumbnail(id, project.video.asset.playbackId, thumbTime);
+        // Set thumbnail state or play depending on hover state
+        if (!isHovered) {
+          // Set to thumbnail frame if not hovered
+          videoEl.pause();
+          const thumbTime = getThumbTime(project);
+          videoEl.currentTime = thumbTime;
+        } else {
+          // If hovered, play the video and loop between start and end times
+          // Use the hover preview settings from the coverVideo field
+          const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
+          const startTimeString = hoverPreview.startTime;
+          const endTimeString = hoverPreview.endTime;
+          
+          const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
+          const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
+          
+          // Only set up time boundaries if both times are defined
+          if (endTime !== null && startTime !== endTime) {
+            // Set current time to start
+            videoEl.currentTime = startTime;
+            
+            // Set up a time update handler to handle looping
+            videoElement._timeUpdateHandler = () => {
+              if (videoEl.currentTime >= endTime) {
+                videoEl.currentTime = startTime;
+              }
+            };
+            
+            videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
+          }
+          
+          // Play the video
+          videoEl.play().catch(err => {
+            // Silent error handling
+          });
         }
+      } catch (error) {
+        // Silent error handling
       }
     });
-    
-    // Play hovered video within time range
-    if (hoveredProject && hoveredProject.video?.asset?.playbackId) {
-      const startTime = hoveredProject.video?.hoverPreview?.startTime 
-        ? utils.current.timeToSeconds(hoveredProject.video.hoverPreview.startTime) 
-        : 0;
-      
-      const endTime = hoveredProject.video?.hoverPreview?.endTime
-        ? utils.current.timeToSeconds(hoveredProject.video.hoverPreview.endTime)
-        : undefined;
-      
-      const videoElement = videoRefs.current[hoveredProject._id];
-      if (videoElement) {
-        videoElement.currentTime = startTime;
-        
-        const handleTimeUpdate = () => {
-          if (endTime && videoElement.currentTime >= endTime) {
-            videoElement.currentTime = startTime;
-          }
-        };
-        
-        videoElement.addEventListener('timeupdate', handleTimeUpdate);
-        videoElement.play().catch(err => console.error('Error playing video:', err));
-        
-        return () => {
-          videoElement.removeEventListener('timeupdate', handleTimeUpdate);
-        };
-      }
-    }
   }, [hoveredProject, projects.videoProjects]);
-
-  // Set up one-time video event listeners
-  const listenerSetupRef = useRef(false);
-  useEffect(() => {
-    if (listenerSetupRef.current || !playerRef.current) return;
-    
-    const videoEl = playerRef.current.querySelector('video');
-    if (!videoEl) return;
-    
-    listenerSetupRef.current = true;
-    
-    // Set up basic video event listeners
-    const handlers = {
-      loadedmetadata: () => console.log('Video metadata loaded, duration:', videoEl.duration),
-      loadstart: () => console.log('Video load started'),
-      canplay: () => console.log('Video can play now'),
-      canplaythrough: () => console.log('Video fully loaded')
-    };
-    
-    // Add listeners
-    Object.entries(handlers).forEach(([event, handler]) => {
-      videoEl.addEventListener(event, handler);
-    });
-    
-    // Clean up on unmount
-    return () => {
-      Object.entries(handlers).forEach(([event, handler]) => {
-        videoEl.removeEventListener(event, handler);
-      });
-    };
-  }, []);
 
   // No video projects to display
   if (!projects.videoProjects || projects.videoProjects.length === 0) {
     return <div className="bottom-gallery absolute bottom-0 left-0 right-0 px-2.5 z-[9]"></div>
   }
   
-  if (!projects.videoProjects) return null;
-  
   return (
     <div ref={galleryRef} className="bottom-gallery absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 z-[9]">
-      {/* Title for the bottom gallery */}
-      <div className="mb-2 text-left">
-        <span>Motion</span>
-      </div>
-      
       <div 
         ref={scrollContainerRef}
         className="w-full overflow-x-auto overflow-y-hidden scrollbar-hide"
         style={{ 
-          scrollbarWidth: 'none',  /* Firefox */
-          msOverflowStyle: 'none',  /* IE and Edge */
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       >
         <div className="flex gap-2">
           {projects.videoProjects.map((project) => {
-            const thumbTime = project.thumbTime || project.video?.asset?.thumbTime || 0;
+            // Get the playback ID from the processed data structure
+            const playbackId = project.video?.asset?.playbackId;
+            const hasValidVideo = !!playbackId;
+            const thumbTime = getThumbTime(project);
 
             return (
             <Link 
-              href={`/video-project/${project.slug}`}
+              href={`/project/${project.slug}`}
               key={project._id}
               className="w-[200px] h-[200px] flex-shrink-0 relative overflow-hidden"
               onMouseEnter={() => handleProjectHover(project)}
-              onMouseLeave={() => {
-                utils.current.resetToThumbnail(project._id, project.video.asset.playbackId, thumbTime);
-                handleProjectLeave();
-              }}
+                onMouseLeave={handleProjectLeave}
             >
               <div className="relative w-full h-full overflow-hidden">
-                {project.video?.asset?.playbackId && (
+                  {hasValidVideo ? (
                   <div className="w-full h-full relative overflow-hidden">
                     <div 
                       className="absolute inset-0 origin-center"
@@ -261,26 +195,18 @@ export default function BottomGallery() {
                     >
                       <Mux
                         ref={el => {
-                          videoRefs.current[project._id] = el;
-                          if (el) {
-                            utils.current.forceSetThumbnail(project.video.asset.playbackId, thumbTime);
-                            setTimeout(() => utils.current.forceSetThumbnail(project.video.asset.playbackId, thumbTime), 100);
-                          }
-                        }}
-                        onLoadedMetadata={() => {
-                          utils.current.forceSetThumbnail(project.video.asset.playbackId, thumbTime);
-                        }}
-                        onLoadStart={() => console.log(`Load started for ${project.name}`)}
-                        onLoad={() => utils.current.forceSetThumbnail(project.video.asset.playbackId, thumbTime)}
-                        onPosterLoaded={() => console.log(`Poster loaded for ${project.name}`)}
-                        playbackId={project.video.asset.playbackId}
+                            if (el && playbackId) {
+                            videoRefs.current[project._id] = el;
+                            }
+                          }}
+                          playbackId={playbackId}
                         streamType="on-demand"
                         autoPlay={false}
                         muted={true}
                         loop={false}
                         preload="auto"
-                        defaultPosterTime={thumbTime}
-                        thumbnailTime={thumbTime}
+                          defaultPosterTime={thumbTime}
+                          thumbnailTime={thumbTime}
                         style={{ 
                           height: '200px',
                           width: '200px',
@@ -301,7 +227,6 @@ export default function BottomGallery() {
                           pointerEvents: 'none',
                           overflow: 'hidden'
                         }}
-                        envKey="ENV_KEY"
                         disableCookies={true}
                         playerSoftware="custom:portfolio"
                         debug={false}
@@ -314,6 +239,23 @@ export default function BottomGallery() {
                       />
                     </div>
                   </div>
+                ) : (
+                    // Fallback to coverImage if no valid video
+                  project.coverImage ? (
+                    <div className="w-full h-full relative">
+                      <Image
+                        src={project.coverImage}
+                        alt={project.name}
+                        width={200}
+                        height={200}
+                        className="object-cover w-full h-full"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-xs text-gray-400">
+                      No thumbnail
+                    </div>
+                  )
                 )}
               </div>
             </Link>
@@ -321,7 +263,6 @@ export default function BottomGallery() {
           })}
         </div>
       </div>
-      
     </div>
   )
 } 

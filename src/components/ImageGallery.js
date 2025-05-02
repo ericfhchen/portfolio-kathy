@@ -25,7 +25,7 @@ export default function ImageGallery({ images, name }) {
   if (!images || images.length === 0) return null;
   
   return (
-    <>
+    <div className="image-gallery">
       {/* Images gallery - one image at a time with click navigation */}
       <div className="fixed inset-0 flex items-center justify-center">
         <div 
@@ -59,6 +59,6 @@ export default function ImageGallery({ images, name }) {
           Next
         </button>
       </div>
-    </>
+    </div>
   );
 } 

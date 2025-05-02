@@ -123,77 +123,70 @@ export function GalleryProvider({ children }) {
             "slug": slug.current,
             "coverImage": coverImage.asset->url,
             projectTagline,
+            thumbTime,
             client->{
               title
             },
-            // Get video fields directly
-            video
+            // Get the video gallery 
+            "videoGallery": videoGallery[] {
+              "asset": asset->,
+              "playbackId": asset.playbackId,
+              "assetRef": asset._ref,
+              "thumbTime": asset->thumbTime,
+              "caption": caption
+            },
+            // Get the dedicated cover video
+            coverVideo
           }
         `)
         
-        // Query all MUX video assets to get their thumbnail times
+        // Get all Mux assets for reference
         const muxAssets = await client.fetch(groq`
           *[_type == "mux.videoAsset"] {
             _id,
             playbackId,
-            status,
-            assetId,
             thumbTime
           }
         `)
         
-        console.log("MUX assets fetched:", muxAssets);
-        
-        // Direct mapping from project ID to MUX asset ID and playbackId
-        const knownMuxAssets = {
-          "cffc186f-05cb-406b-9bd3-5865a9652c4c": {
-            assetRef: "148ec3c9-237c-42b5-bf48-b4a8a3270d2b", 
-            playbackId: "L1102y5hUE1tY7tQd6MgwB02xBfJX3zi4mP4jAkLge6PI"
-          }
-        };
-        
-        // Process video projects to add playbackId and thumbnail time
+        // Process video projects to ensure they have the necessary data
         const enhancedProjects = videoProjects.map(project => {
-          // Check if we have known MUX data for this project
-          const knownData = knownMuxAssets[project._id];
-          
-          if (knownData) {
-            // Find the matching MUX asset to get its thumbnail time
-            const matchingMuxAsset = muxAssets.find(asset => asset._id === knownData.assetRef);
-            const thumbTime = matchingMuxAsset?.thumbTime || 0;
+          // Only use dedicated cover video
+          if (project.coverVideo?.asset?.asset?._ref) {
+            const coverVideoRef = project.coverVideo.asset.asset._ref;
+            const muxAssetId = coverVideoRef;
+            const muxAsset = muxAssets.find(a => a._id === muxAssetId);
             
-            console.log(`Project ${project.name} - Found matching MUX asset:`, matchingMuxAsset);
-            console.log(`Project ${project.name} - Using thumbTime:`, thumbTime);
-            
-            // Add MUX asset reference, playbackId, and thumbnail time to the project
-            return {
-              ...project,
-              muxAssetRef: knownData.assetRef,
-              thumbTime,
-              video: {
-                ...project.video,
-                asset: {
-                  ...(project.video?.asset || {}),
-                  playbackId: knownData.playbackId,
-                  thumbTime: thumbTime
+            if (muxAsset?.playbackId) {
+              return {
+                ...project,
+                thumbTime: project.thumbTime || project.coverVideo.thumbTime,
+                video: {
+                  asset: {
+                    _type: "mux.videoAsset",
+                    playbackId: muxAsset.playbackId,
+                    thumbTime: muxAsset.thumbTime || project.coverVideo.thumbTime
+                  },
+                  hoverPreview: project.coverVideo.hoverPreview || {}
                 }
-              }
-            };
+              };
+            }
           }
           
+          // If no cover video, return project as-is without video
           return project;
         });
         
         setProjects({ imageProjects, videoProjects: enhancedProjects });
-        setLoading(false)
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching projects:', error)
-        setProjects({ imageProjects: [], videoProjects: [] })
-        setLoading(false)
+        console.error('Error fetching projects:', error);
+        setProjects({ imageProjects: [], videoProjects: [] });
+        setLoading(false);
       }
     }
 
-    fetchProjects()
+    fetchProjects();
   }, [])
 
   const handleProjectHover = (project) => {

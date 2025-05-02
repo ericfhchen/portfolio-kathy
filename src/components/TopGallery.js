@@ -36,7 +36,7 @@ export default function TopGallery() {
         <div className="flex gap-2">
           {projects.imageProjects.map((project) => (
             <Link 
-              href={`/image-project/${project.slug}`}
+              href={`/project/${project.slug}`}
               key={project._id}
               className="w-[200px] h-[200px] flex-shrink-0 relative"
               onMouseEnter={() => handleProjectHover(project)}
@@ -60,9 +60,9 @@ export default function TopGallery() {
           ))}
         </div>
       </div>
-      <div className="mt-2 text-left">
+      {/* <div className="mt-2 text-left">
         Stills
-      </div>
+      </div> */}
     </div>
   )
 } 
