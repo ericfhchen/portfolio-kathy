@@ -163,13 +163,15 @@ export default async function ProjectPage({ params }) {
             _key,
             "asset": {
               "playbackId": asset.asset->playbackId,
-              "_id": asset.asset->_id
+              "_id": asset.asset->_id,
+              "data": asset.asset->data
             },
             caption
           },
           "coverVideo": {
             "playbackId": coverVideo.asset.asset->playbackId,
             "_id": coverVideo.asset.asset->_id,
+            "data": coverVideo.asset.asset->data,
             "thumbTime": coverVideo.thumbTime
           },
           credits,

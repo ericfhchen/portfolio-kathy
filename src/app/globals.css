@@ -17,6 +17,27 @@
   --font-family: 'Helvetica Neue', 'Helvetica Neue 55', Helvetica, Arial, sans-serif;
 }
 
+/* Remove blue outline from all selected elements */
+* {
+  outline: none;
+}
+
+/* Ensure focus states are still accessible but without the default blue outline */
+*:focus {
+  outline: none;
+}
+
+/* Remove outline from buttons, inputs, and other interactive elements */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+a:focus,
+[tabindex]:focus {
+  outline: none;
+}
+
+
 @layer base {
   body {
     font-family: var(--font-family);
