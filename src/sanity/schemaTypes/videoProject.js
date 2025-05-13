@@ -4,9 +4,18 @@ import Mux from '@mux/mux-player-react'
 // Helper function to convert time string to seconds
 const timeToSeconds = (timeStr) => {
   if (!timeStr) return 0;
-  const [minutes, seconds] = timeStr.split(':').map(Number);
-  return minutes * 60 + seconds;
+  // Updated to handle MM:SS.mm format
+  const [minutesPart, secondsPart] = timeStr.split(':');
+  const minutes = parseInt(minutesPart, 10);
+  const [secondsWhole, millisPart] = secondsPart.split('.');
+  const seconds = parseInt(secondsWhole, 10);
+  const milliseconds = millisPart ? parseInt(millisPart, 10) / 100 : 0;
+  return minutes * 60 + seconds + milliseconds;
 };
+
+// Format validation regex for MM:SS.mm time format
+const timeFormatRegex = /^[0-5]?[0-9]:[0-5][0-9]\.[0-9]{2}$/;
+const timeFormatErrorMsg = 'Time must be in format MM:SS.mm (e.g., 01:30.50)';
 
 export const videoProjects = defineType({
   name: 'videoProjects',
@@ -130,14 +139,6 @@ export const videoProjects = defineType({
           validation: Rule => Rule.required().error('A cover video is required')
         },
         {
-          name: 'thumbTime',
-          title: 'Thumbnail Time (seconds)',
-          description: 'Position in the video to use for the static thumbnail (in seconds)',
-          type: 'number',
-          initialValue: 0,
-          validation: Rule => Rule.min(0)
-        },
-        {
           name: 'hoverPreview',
           title: 'Hover Preview Settings',
           description: 'Configure what segment of the video plays on hover',
@@ -151,9 +152,8 @@ export const videoProjects = defineType({
               validation: Rule => Rule
                 .custom((time) => {
                   if (!time) return true;
-                  const timeRegex = /^[0-5]?[0-9]:[0-5][0-9]\.[0-9]{2}$/;
-                  if (!timeRegex.test(time)) {
-                    return 'Time must be in format MM:SS.mm (e.g., 00:05.00)';
+                  if (!timeFormatRegex.test(time)) {
+                    return timeFormatErrorMsg;
                   }
                   return true;
                 })
@@ -166,9 +166,8 @@ export const videoProjects = defineType({
               validation: Rule => Rule
                 .custom((endTime, context) => {
                   if (!endTime) return true;
-                  const timeRegex = /^[0-5]?[0-9]:[0-5][0-9]\.[0-9]{2}$/;
-                  if (!timeRegex.test(endTime)) {
-                    return 'Time must be in format MM:SS.mm (e.g., 00:05.00)';
+                  if (!timeFormatRegex.test(endTime)) {
+                    return timeFormatErrorMsg;
                   }
                   
                   const startTime = context.parent?.startTime;
@@ -210,14 +209,12 @@ export const videoProjects = defineType({
       preview: {
         select: {
           playbackId: 'asset.playbackId',
-          thumbTime: 'thumbTime'
         },
-        prepare({playbackId, thumbTime}) {
-          const timeStr = thumbTime !== undefined ? `?time=${thumbTime}` : '';
+        prepare({playbackId}) {
           return {
             title: 'Cover Video',
             media: playbackId 
-              ? `https://image.mux.com/${playbackId}/thumbnail.jpg${timeStr}` 
+              ? `https://image.mux.com/${playbackId}/thumbnail.jpg` 
               : undefined
           }
         }
@@ -232,12 +229,11 @@ export const videoProjects = defineType({
     prepare({ title, coverVideo }) {
       // Use the dedicated cover video field for the preview
       const playbackId = coverVideo?.asset?.playbackId;
-      const thumbTime = coverVideo?.thumbTime !== undefined ? `?time=${coverVideo.thumbTime}` : '';
       
       return {
         title,
         media: playbackId 
-          ? `https://image.mux.com/${playbackId}/thumbnail.jpg${thumbTime}` 
+          ? `https://image.mux.com/${playbackId}/thumbnail.jpg` 
           : undefined
       };
     }

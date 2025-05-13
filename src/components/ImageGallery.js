@@ -39,26 +39,48 @@ export default function ImageGallery({ images, name }) {
             width={1200}
             height={800}
             className="max-w-full max-h-full object-contain"
-            priority={currentImageIndex === 0}
+            priority={true}
           />
+          
+          {/* Preload adjacent images */}
+          {images.length > 1 && (
+            <div className="hidden">
+              <Image
+                src={images[(currentImageIndex + 1) % images.length]}
+                alt="Preload next"
+                width={1200}
+                height={800}
+                priority={true}
+              />
+              <Image
+                src={images[currentImageIndex === 0 ? images.length - 1 : currentImageIndex - 1]}
+                alt="Preload previous"
+                width={1200}
+                height={800}
+                priority={true}
+              />
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Navigation buttons */}
-      <div className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8">
-        <button 
-          onClick={goToPrevImage} 
-          className="uppercase hover:opacity-60 transition-opacity leading-[1]"
-        >
-          Prev
-        </button>
-        <button 
-          onClick={goToNextImage} 
-          className="uppercase hover:opacity-60 transition-opacity leading-[1]"
-        >
-          Next
-        </button>
-      </div>
+      {/* Navigation buttons - only show if more than 1 image */}
+      {images.length > 1 && (
+        <div className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8">
+          <button 
+            onClick={goToPrevImage} 
+            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+          >
+            Prev
+          </button>
+          <button 
+            onClick={goToNextImage} 
+            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 } 

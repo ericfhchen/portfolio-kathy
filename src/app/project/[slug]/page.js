@@ -164,7 +164,8 @@ export default async function ProjectPage({ params }) {
             "asset": {
               "playbackId": asset.asset->playbackId,
               "_id": asset.asset->_id,
-              "data": asset.asset->data
+              "data": asset.asset->data,
+              "thumbTime": asset.asset->thumbTime
             },
             caption
           },
@@ -184,9 +185,6 @@ export default async function ProjectPage({ params }) {
         }`,
         { slug }
       )
-      
-      // Log the structure for debugging
-      console.log('Video project structure:', JSON.stringify(project, null, 2));
 
       // Fetch the next project for navigation
       const nextProject = await client.fetch(

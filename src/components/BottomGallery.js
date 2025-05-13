@@ -142,7 +142,16 @@ export default function BottomGallery() {
           
           // Set thumbnail frame
           const thumbTime = getThumbTime(project);
-          videoEl.currentTime = thumbTime;
+          
+          // Use setTimeout with 0ms to put this at the end of the event queue
+          // This ensures the pause command completes first
+          setTimeout(() => {
+            try {
+              videoEl.currentTime = thumbTime;
+            } catch (err) {
+              // Silent error handling for seek operations
+            }
+          }, 0);
         }
       } catch {
         // Silent error handling

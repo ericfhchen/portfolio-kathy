@@ -230,15 +230,28 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   
   // Use useMemo to prevent effectiveVideos from changing on every render
   const effectiveVideos = useMemo(() => {
-    return validVideos.length > 0 
-      ? validVideos 
-      : (coverVideo && coverVideo.playbackId ? [{ asset: coverVideo, caption: name }] : []);
+    if (validVideos.length > 0) {
+      return validVideos;
+    } else if (coverVideo && coverVideo.playbackId) {
+      // When using coverVideo as fallback, map its properties correctly to match the expected structure
+      return [{
+        asset: {
+          ...coverVideo,
+          // Ensure thumbTime is directly on the asset object where our getPosterUrl function checks for it
+          thumbTime: coverVideo.thumbTime
+        },
+        caption: name
+      }];
+    } else {
+      return [];
+    }
   }, [validVideos, coverVideo, name]);
   
   // Update aspect ratio when current video changes
   useEffect(() => {
     if (mounted && effectiveVideos.length > 0 && currentVideoIndex < effectiveVideos.length) {
       const currentVideo = effectiveVideos[currentVideoIndex];
+      
       // Convert aspect ratio from "16:9" format to "16/9" for CSS
       const newAspectRatio = currentVideo?.asset?.data?.aspect_ratio?.replace(':', '/') || '16/9';
       setVideoAspectRatio(newAspectRatio);
@@ -338,6 +351,40 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const currentVideo = effectiveVideos[currentVideoIndex];
   const playbackId = currentVideo?.asset?.playbackId;
   
+  // Determine the poster URL based on available thumbnail data
+  const getPosterUrl = (video) => {
+    if (!video?.asset?.playbackId) return undefined;
+    
+    // First check direct poster property
+    if (video?.asset?.poster) return video.asset.poster;
+    
+    // Check thumbTime at the asset root level
+    if (video?.asset?.thumbTime !== undefined) {
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.thumbTime}`;
+    }
+    
+    // Check thumbTime in data object
+    if (video?.asset?.data?.thumbTime !== undefined) {
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbTime}`;
+    }
+    
+    // Check for thumbnail_time in data (another possible format)
+    if (video?.asset?.data?.thumbnail_time !== undefined) {
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbnail_time}`;
+    }
+    
+    // Additional check for Sanity MUX custom thumbnail time location
+    // Sometimes Sanity stores it nested under data.playback_ids
+    if (video?.asset?.data?.playback_ids?.[0]?.time !== undefined) {
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.playback_ids[0].time}`;
+    }
+    
+    // Return undefined to let MuxPlayer use the default thumbnail
+    return undefined;
+  };
+  
+  const posterUrl = getPosterUrl(currentVideo);
+  
   if (!playbackId) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
@@ -402,6 +449,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     secondaryColor='#000000'
                     loop
                     muted
+                    poster={posterUrl}
                     style={{
                       '--controls': 'none',
                       '--media-object-fit': 'contain',
