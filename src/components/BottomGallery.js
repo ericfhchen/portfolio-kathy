@@ -148,7 +148,7 @@ export default function BottomGallery() {
           setTimeout(() => {
             try {
               videoEl.currentTime = thumbTime;
-            } catch (err) {
+            } catch {
               // Silent error handling for seek operations
             }
           }, 0);
