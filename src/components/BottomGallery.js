@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import Mux from '@mux/mux-player-react'
 import Image from 'next/image'
 
@@ -62,7 +62,7 @@ export default function BottomGallery() {
     return 0;
   };
   
-  // Handle playing videos on hover
+  // Handle playing videos on hover - optimized version
   useEffect(() => {
     if (!projects.videoProjects) return;
     
@@ -81,42 +81,22 @@ export default function BottomGallery() {
       const isHovered = hoveredProject?._id === projectId;
       
       try {
-        // Find the actual video element
+        // Simplify video element lookup to reduce overhead
         let videoEl = null;
+        
+        // Try to access the video element directly first
         if (videoElement.shadowRoot) {
           videoEl = videoElement.shadowRoot.querySelector('video');
         }
-        if (!videoEl) {
-          videoEl = videoElement.querySelector('video');
-        }
-        if (!videoEl && videoElement.mediaController) {
-          videoEl = videoElement.mediaController.media;
-        }
         
-        // If we can't find the video element, just use the Mux component
+        // If we can't find the video element, use the Mux component
         if (!videoEl) {
           videoEl = videoElement;
         }
         
-        // Clean up any previous event listeners
-        if (videoElement._timeUpdateHandler) {
-          try {
-            videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
-            videoElement._timeUpdateHandler = null;
-          } catch {
-            // Ignore errors during cleanup
-          }
-        }
-        
-        // Set thumbnail state or play depending on hover state
-        if (!isHovered) {
-          // Set to thumbnail frame if not hovered
-          videoEl.pause();
-          const thumbTime = getThumbTime(project);
-          videoEl.currentTime = thumbTime;
-        } else {
-          // If hovered, play the video and loop between start and end times
-          // Use the hover preview settings from the coverVideo field
+        // Store a persistent reference to the handler for faster cleanup
+        if (isHovered) {
+          // Get hover preview settings
           const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
           const startTimeString = hoverPreview.startTime;
           const endTimeString = hoverPreview.endTime;
@@ -124,25 +104,45 @@ export default function BottomGallery() {
           const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
           const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
           
-          // Only set up time boundaries if both times are defined
+          // Set up time boundaries if needed and play immediately
           if (endTime !== null && startTime !== endTime) {
-            // Set current time to start
             videoEl.currentTime = startTime;
             
-            // Set up a time update handler to handle looping
-            videoElement._timeUpdateHandler = () => {
-              if (videoEl.currentTime >= endTime) {
-                videoEl.currentTime = startTime;
-              }
-            };
-            
-            videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
+            // Only add the event listener if we need to handle looping
+            if (!videoElement._timeUpdateHandler) {
+              videoElement._timeUpdateHandler = () => {
+                if (videoEl.currentTime >= endTime) {
+                  videoEl.currentTime = startTime;
+                }
+              };
+              
+              videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
+            }
           }
           
-          // Play the video
-          videoEl.play().catch(() => {
-            // Silent error handling
+          // Play the video with a small timeout to allow browser to process
+          requestAnimationFrame(() => {
+            videoEl.play().catch(() => {
+              // Silent error handling
+            });
           });
+        } else {
+          // Pause when not hovered
+          videoEl.pause();
+          
+          // Clean up any timeupdate event listeners
+          if (videoElement._timeUpdateHandler) {
+            try {
+              videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
+              videoElement._timeUpdateHandler = null;
+            } catch {
+              // Ignore errors during cleanup
+            }
+          }
+          
+          // Set thumbnail frame
+          const thumbTime = getThumbTime(project);
+          videoEl.currentTime = thumbTime;
         }
       } catch {
         // Silent error handling
@@ -178,7 +178,7 @@ export default function BottomGallery() {
               key={project._id}
               className="w-[200px] h-[200px] flex-shrink-0 relative overflow-hidden"
               onMouseEnter={() => handleProjectHover(project)}
-                onMouseLeave={handleProjectLeave}
+              onMouseLeave={handleProjectLeave}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (
@@ -186,7 +186,7 @@ export default function BottomGallery() {
                     <div 
                       className="absolute inset-0 origin-center"
                       style={{
-                        transform: 'translate(-50%, -50%) scale(2.5)',
+                        transform: 'translate(-50%, -50%) scale(2)',
                         left: '50%',
                         top: '50%',
                         width: '100%',
@@ -205,8 +205,8 @@ export default function BottomGallery() {
                         muted={true}
                         loop={false}
                         preload="auto"
-                          defaultPosterTime={thumbTime}
-                          thumbnailTime={thumbTime}
+                        defaultPosterTime={thumbTime}
+                        thumbnailTime={thumbTime}
                         style={{ 
                           height: '200px',
                           width: '200px',
@@ -225,7 +225,8 @@ export default function BottomGallery() {
                           '--container-width': '220px',
                           '--container-height': '220px',
                           pointerEvents: 'none',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          willChange: 'transform' // Add will-change to optimize rendering
                         }}
                         disableCookies={true}
                         playerSoftware="custom:portfolio"
