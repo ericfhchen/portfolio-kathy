@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect } from 'react'
 import Mux from '@mux/mux-player-react'
 import Image from 'next/image'
 
