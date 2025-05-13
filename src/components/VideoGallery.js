@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import MuxPlayer from '@mux/mux-player-react'
 
 
@@ -12,7 +12,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerWidth, setPlayerWidth] = useState(0);
   const [playerHeight, setPlayerHeight] = useState(0);
-  const [playerBottom, setPlayerBottom] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [videoAspectRatio, setVideoAspectRatio] = useState('16/9');
@@ -91,9 +90,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
           // Update the state with the calculated values
           setPlayerWidth(playerWidthValue);
           setPlayerHeight(playerHeightValue);
-          
-          // We no longer need playerBottom since controls are inside the player wrapper
-          setPlayerBottom(0);
         } catch (e) {
           console.error("Error measuring player:", e);
         }
@@ -192,16 +188,19 @@ export default function VideoGallery({ videos, name, coverVideo }) {
         startControlsTimer();
       };
       
-      if (containerRef.current) {
-        containerRef.current.addEventListener('mousemove', handleMouseMove);
+      // Capture current ref value to use in cleanup
+      const currentContainer = containerRef.current;
+      
+      if (currentContainer) {
+        currentContainer.addEventListener('mousemove', handleMouseMove);
       }
       
       return () => {
         if (controlsTimeoutRef.current) {
           clearTimeout(controlsTimeoutRef.current);
         }
-        if (containerRef.current) {
-          containerRef.current.removeEventListener('mousemove', handleMouseMove);
+        if (currentContainer) {
+          currentContainer.removeEventListener('mousemove', handleMouseMove);
         }
       };
     }
@@ -229,10 +228,12 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     return !!video.asset.playbackId;
   }) || [];
   
-  // If no valid videos but we have a cover video, use that instead
-  const effectiveVideos = validVideos.length > 0 
-    ? validVideos 
-    : (coverVideo && coverVideo.playbackId ? [{ asset: coverVideo, caption: name }] : []);
+  // Use useMemo to prevent effectiveVideos from changing on every render
+  const effectiveVideos = useMemo(() => {
+    return validVideos.length > 0 
+      ? validVideos 
+      : (coverVideo && coverVideo.playbackId ? [{ asset: coverVideo, caption: name }] : []);
+  }, [validVideos, coverVideo, name]);
   
   // Update aspect ratio when current video changes
   useEffect(() => {
@@ -382,7 +383,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
             {mounted && (
               <>
                 <div
-                  className="relative"
+                  className={`relative ${isVerticalVideo ? 'vertical-video' : ''}`}
                   style={{
                     width: isFullscreen ? '100%' : `${playerWidth}px`,
                     height: isFullscreen ? '100%' : `${playerHeight}px`,
