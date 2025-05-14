@@ -19,6 +19,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
+  const [isiOS, setIsiOS] = useState(false);
   
   // Only run client-side code after mounting
   useEffect(() => {
@@ -306,40 +307,71 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   };
 
   const toggleFullscreen = () => {
-    // For iOS Safari, we need a direct approach that works specifically on mobile
-    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    
-    if (isiOS && playerRef.current) {
-      try {
-        // Try to access internal video element
-        const mediaEl = playerRef.current.mediaEl;
+    // Special handling for iOS Safari
+    if (isiOS) {
+      // Find the current video source
+      const muxVideoSrc = `https://stream.mux.com/${playbackId}/low.mp4`;
+      
+      // Create iOS-compatible fullscreen handler
+      const iosFullscreen = () => {
+        // 1. Create a wrapper that will hold our fullscreen video
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        wrapper.style.zIndex = '99999';
+        wrapper.style.background = 'black';
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
         
-        if (mediaEl && mediaEl.webkitEnterFullscreen) {
-          mediaEl.webkitEnterFullscreen();
-          return;
-        }
+        // 2. Create the video element
+        const video = document.createElement('video');
+        video.src = muxVideoSrc;
+        video.playsInline = false; // important for iOS fullscreen
+        video.controls = true; // native controls
+        video.autoplay = true;
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
         
-        // Look for any video element available and directly request fullscreen
-        const videoElements = document.querySelectorAll('video');
-        if (videoElements.length > 0) {
-          for (let i = 0; i < videoElements.length; i++) {
-            const video = videoElements[i];
-            if (video.webkitEnterFullscreen) {
-              video.webkitEnterFullscreen();
-              return;
+        // 3. Set up exit handler
+        const exitHandler = () => {
+          wrapper.remove();
+          if (playerRef.current) {
+            // Resume main player where the fullscreen left off
+            playerRef.current.currentTime = video.currentTime;
+            if (!video.paused) {
+              playerRef.current.play();
             }
           }
+        };
+        
+        // 4. Add exit listeners
+        video.addEventListener('pause', exitHandler);
+        video.addEventListener('ended', exitHandler);
+        
+        // 5. Add click handler for manual exit
+        wrapper.addEventListener('click', (e) => {
+          if (e.target === wrapper) {
+            exitHandler();
+          }
+        });
+        
+        // 6. Add to DOM and play
+        wrapper.appendChild(video);
+        document.body.appendChild(wrapper);
+        
+        // 7. Request fullscreen on the video
+        if (video.webkitEnterFullscreen) {
+          video.webkitEnterFullscreen();
         }
-      } catch (e) {
-        console.error("iOS fullscreen error:", e);
-      }
+      };
       
-      // If all else fails, try to send a message to the MuxPlayer's internal component
-      if (playerRef.current && typeof playerRef.current.enterFullscreen === 'function') {
-        playerRef.current.enterFullscreen();
-        return;
-      }
-      
+      // Trigger iOS fullscreen
+      iosFullscreen();
       return;
     }
     
@@ -375,6 +407,14 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       setProgress(percentage);
     }
   };
+
+  // Detect iOS devices
+  useEffect(() => {
+    if (mounted) {
+      const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      setIsiOS(iOS);
+    }
+  }, [mounted]);
 
   // If there are no valid videos, display a message
   if (!effectiveVideos || effectiveVideos.length === 0) {
