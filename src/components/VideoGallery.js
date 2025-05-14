@@ -90,7 +90,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
           // Update the state with the calculated values
           setPlayerWidth(playerWidthValue);
           setPlayerHeight(playerHeightValue);
-        } catch (e) {
+        } catch {
           // Error measuring player
         }
       };
@@ -221,15 +221,15 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     }
   }, [isPlaying]);
 
-  // Filter out invalid videos (those without a playback ID)
-  const validVideos = videos?.filter(video => {
-    if (!video?.asset) return false;
-    // Check for playbackId in the expected location for Mux videos
-    return !!video.asset.playbackId;
-  }) || [];
-  
-  // Use useMemo to prevent effectiveVideos from changing on every render
+  // Use useMemo to calculate effective videos that won't change on every render
   const effectiveVideos = useMemo(() => {
+    // Filter out invalid videos (those without a playback ID)
+    const validVideos = videos?.filter(video => {
+      if (!video?.asset) return false;
+      // Check for playbackId in the expected location for Mux videos
+      return !!video.asset.playbackId;
+    }) || [];
+
     if (validVideos.length > 0) {
       return validVideos;
     } else if (coverVideo && coverVideo.playbackId) {
@@ -245,7 +245,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     } else {
       return [];
     }
-  }, [validVideos, coverVideo, name]);
+  }, [videos, coverVideo, name]);
   
   // Update aspect ratio when current video changes
   useEffect(() => {

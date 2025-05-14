@@ -177,7 +177,7 @@ export function GalleryProvider({ children }) {
         
         setProjects({ imageProjects, videoProjects: enhancedProjects });
         setLoading(false);
-      } catch (error) {
+      } catch {
         // Error fetching projects
         setProjects({ imageProjects: [], videoProjects: [] });
         setLoading(false);

@@ -301,7 +301,7 @@ export default async function ProjectPage({ params }) {
         </div>
       )
     }
-  } catch (error) {
+  } catch {
     // Error fetching project
     return (
       <div className="p-2">

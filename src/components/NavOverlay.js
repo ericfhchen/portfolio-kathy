@@ -24,7 +24,6 @@ export const navEvents = {
 
 export default function NavOverlay() {
   const [isOverlayVisible, setOverlayVisible] = useState(false);
-  const [allClients, setAllClients] = useState([]);
   const [visibleClients, setVisibleClients] = useState([]);
   const [siteInfo, setSiteInfo] = useState({
     bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur id mi fringilla, euismod tellus sit amet, dictum elit.',
@@ -48,7 +47,6 @@ export default function NavOverlay() {
           showInSelectedClients 
         }`;
         const allClientsData = await client.fetch(allClientsQuery);
-        setAllClients(allClientsData);
         
         // Filter clients to only show those with showInSelectedClients === true
         const filtered = allClientsData.filter(c => c.showInSelectedClients === true);
@@ -70,7 +68,7 @@ export default function NavOverlay() {
             ...siteInfoData
           }));
         }
-      } catch (error) {
+      } catch {
         // Error fetching data
         // Keep using default values if there's an error
       } finally {
