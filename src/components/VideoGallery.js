@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import MuxPlayer from '@mux/mux-player-react'
 
 
-export default function VideoGallery({ videos, name, coverVideo }) {
+export default function VideoGallery({ videos }) {
   const [mounted, setMounted] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
