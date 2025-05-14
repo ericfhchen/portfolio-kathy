@@ -542,6 +542,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     secondaryColor='#000000'
                     loop
                     muted
+                    allowFullscreen
                     playsInline={false}
                     poster={posterUrl}
                     style={{
