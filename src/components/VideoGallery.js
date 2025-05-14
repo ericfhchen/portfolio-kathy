@@ -16,13 +16,19 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const [showControls, setShowControls] = useState(true);
   const [videoAspectRatio, setVideoAspectRatio] = useState('16/9');
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
   
-  // Only run client-side code after mounting
+  // Only run client-side code after mounting and detect iOS
   useEffect(() => {
     setMounted(true);
+    
+    // Check if the device is iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isIOSDevice);
   }, [videos, coverVideo]);
 
   // Measure player width when video loads or changes
@@ -420,9 +426,9 @@ export default function VideoGallery({ videos, name, coverVideo }) {
           <div 
             ref={containerRef} 
             className="relative w-full h-full flex items-center justify-center" 
-            onMouseEnter={() => setShowControls(true)}
+            onMouseEnter={() => !isIOS && setShowControls(true)}
             onMouseLeave={() => {
-              if (isPlaying) {
+              if (!isIOS && isPlaying) {
                 // Only hide controls on mouse leave if video is playing
                 if (controlsTimeoutRef.current) {
                   clearTimeout(controlsTimeoutRef.current);
@@ -468,8 +474,18 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     muted
                     allowFullscreen
                     poster={posterUrl}
+                    defaultHiddenCaptions
+                    defaultShowControls={isIOS}
+                    controls={isIOS ? {
+                      defaultDuration: false,
+                      volume: false,
+                      fullscreen: true,
+                      playbackRate: false,
+                      pip: false,
+                      cast: false,
+                    } : false}
                     style={{
-                      '--controls': 'none',
+                      '--controls': isIOS ? 'default' : 'none',
                       '--media-object-fit': 'contain',
                       '--media-object-position': 'center',
                       '--poster-object-fit': 'contain', 
@@ -485,108 +501,118 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                       boxSizing: 'border-box',
                       objectFit: 'contain',
                     }}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onMuted={() => setIsMuted(true)}
+                    onUnmuted={() => setIsMuted(false)}
+                    onEnterFullscreen={() => setIsFullscreen(true)}
+                    onExitFullscreen={() => setIsFullscreen(false)}
                   />
                   
-                  {/* Click overlay for play/pause */}
-                  <div 
-                    className="absolute cursor-pointer z-[2]"
-                    onClick={(e) => {
-                      // Don't toggle play if clicking on the controls container
-                      if (!e.target.closest('.controls-container')) {
-                        togglePlay();
-                      }
-                    }}
-                    style={{
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      top: '0',
-                      left: '0',
-                      pointerEvents: 'auto',
-                      background: 'transparent',
-                    }}
-                  />
-                  
-                  {/* Custom Controls */}
-                  <div 
-                    className={`controls-container absolute z-10 flex items-center gap-4 ${isFullscreen ? '' : 'p-4'} w-full transition-opacity duration-300 ease-in-out`}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      width: '100%',
-                      background: isFullscreen ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
-                      borderRadius: isFullscreen ? '5px' : '0',
-                      padding: isFullscreen ? '10px' : undefined,
-                      opacity: showControls ? 1 : 0,
-                      pointerEvents: showControls ? 'auto' : 'none'
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePlay();
-                        }}
-                        className="text-white hover:opacity-60 transition-opacity w-10 text-center tracking-wide"
-                      >
-                        {isPlaying ? 'PAUSE' : 'PLAY'}
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleMute();
-                        }}
-                        className="text-white hover:opacity-60 w-10 text-center transition-opacity tracking-wide"
-                      >
-                        {isMuted ? 'UNMUTE' : 'MUTE'}
-                      </button>
-                    </div>
+                  {/* Click overlay for play/pause - only show when not on iOS */}
+                  {!isIOS && (
                     <div 
-                      className="flex-1"
+                      className="absolute cursor-pointer z-[2]"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        handleProgressClick(e);
+                        // Don't toggle play if clicking on the controls container
+                        if (!e.target.closest('.controls-container')) {
+                          togglePlay();
+                        }
                       }}
                       style={{
-                        position: 'relative',
-                        height: '100%',
-                        padding: '4px 0',
+                        position: 'absolute',
                         width: '100%',
-                        display: 'flex',
-                        alignItems: 'center'
+                        height: '100%',
+                        top: '0',
+                        left: '0',
+                        pointerEvents: 'auto',
+                        background: 'transparent',
+                      }}
+                    />
+                  )}
+                  
+                  {/* Custom Controls - only show when not on iOS */}
+                  {!isIOS && (
+                    <div 
+                      className={`controls-container absolute z-10 flex items-center gap-4 ${isFullscreen ? '' : 'p-4'} w-full transition-opacity duration-300 ease-in-out`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        width: '100%',
+                        background: isFullscreen ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+                        borderRadius: isFullscreen ? '5px' : '0',
+                        padding: isFullscreen ? '10px' : undefined,
+                        opacity: showControls ? 1 : 0,
+                        pointerEvents: showControls ? 'auto' : 'none'
                       }}
                     >
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePlay();
+                          }}
+                          className="text-white hover:opacity-60 transition-opacity w-10 text-center tracking-wide"
+                        >
+                          {isPlaying ? 'PAUSE' : 'PLAY'}
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMute();
+                          }}
+                          className="text-white hover:opacity-60 w-10 text-center transition-opacity tracking-wide"
+                        >
+                          {isMuted ? 'UNMUTE' : 'MUTE'}
+                        </button>
+                      </div>
                       <div 
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProgressClick(e);
+                        }}
                         style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                          height: '4px',
+                          position: 'relative',
+                          height: '100%',
+                          padding: '4px 0',
                           width: '100%',
-                          position: 'relative'
+                          display: 'flex',
+                          alignItems: 'center'
                         }}
                       >
                         <div 
-                          className="bg-white"
                           style={{
-                            width: `${progress}%`,
+                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
                             height: '4px',
-                            transition: 'width 0.1s linear'
+                            width: '100%',
+                            position: 'relative'
                           }}
-                        />
+                        >
+                          <div 
+                            className="bg-white"
+                            style={{
+                              width: `${progress}%`,
+                              height: '4px',
+                              transition: 'width 0.1s linear'
+                            }}
+                          />
+                        </div>
                       </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFullscreen();
+                        }}
+                        className="text-white hover:opacity-60 transition-opacity tracking-wide"
+                      >
+                        {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
+                      </button>
                     </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFullscreen();
-                      }}
-                      className="text-white hover:opacity-60 transition-opacity tracking-wide"
-                    >
-                      {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
-                    </button>
-                  </div>
+                  )}
                 </div>
               </>
             )}
@@ -595,7 +621,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       </div>
       
       {/* Caption if available */}
-      {currentVideo.caption && mounted && (
+      {currentVideo.caption && mounted && !isIOS && (
         <div 
           className="fixed bottom-12 left-0 right-0 text-center transition-opacity duration-300 ease-in-out"
           style={{
@@ -607,8 +633,8 @@ export default function VideoGallery({ videos, name, coverVideo }) {
         </div>
       )}
       
-      {/* Navigation buttons - only show if there's more than one video */}
-      {effectiveVideos.length > 1 && mounted && (
+      {/* Navigation buttons - only show if there's more than one video and not on iOS */}
+      {effectiveVideos.length > 1 && mounted && !isIOS && (
         <div 
           className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8 transition-opacity duration-300 ease-in-out"
           style={{
