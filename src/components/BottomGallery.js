@@ -11,18 +11,7 @@ export default function BottomGallery() {
   const videoRefs = useRef({});
   const galleryRef = useRef(null);
   const scrollContainerRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [touchedProjectId, setTouchedProjectId] = useState(null);
-  const scrollTimeout = useRef(null);
-  
-  // Check if device is mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  const [touchedProject, setTouchedProject] = useState(null);
   
   // Register this gallery's container with the context
   useEffect(() => {
@@ -30,49 +19,6 @@ export default function BottomGallery() {
       registerBottomGallery(galleryRef.current);
     }
   }, [registerBottomGallery]);
-  
-  // Track scrolling state
-  useEffect(() => {
-    if (!scrollContainerRef.current) return;
-    
-    const handleScroll = () => {
-      setIsScrolling(true);
-      
-      // Clear previous timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-      
-      // Set new timeout to detect when scrolling stops
-      scrollTimeout.current = setTimeout(() => {
-        setIsScrolling(false);
-        setTouchedProjectId(null);
-      }, 100);
-    };
-    
-    scrollContainerRef.current.addEventListener('scroll', handleScroll);
-    
-    return () => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.removeEventListener('scroll', handleScroll);
-      }
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-    };
-  }, []);
-  
-  // Trigger hover effect only when touching and scrolling simultaneously
-  useEffect(() => {
-    if (isScrolling && touchedProjectId) {
-      const project = projects.videoProjects?.find(p => p._id === touchedProjectId);
-      if (project) {
-        handleProjectHover(project);
-      }
-    } else if (!isScrolling || !touchedProjectId) {
-      handleProjectLeave();
-    }
-  }, [isScrolling, touchedProjectId, projects.videoProjects, handleProjectHover, handleProjectLeave]);
   
   // Helper to convert time string (MM:SS or MM:SS.mm) to seconds
   const timeToSeconds = (timeStr) => {
@@ -117,19 +63,130 @@ export default function BottomGallery() {
     return 0;
   };
   
-  // Handle touch events for mobile
-  const handleTouchStart = (projectId) => {
-    if (isMobile) {
-      setTouchedProjectId(projectId);
-    }
+  // Handle playing videos on hover or touch - optimized version
+  useEffect(() => {
+    if (!projects.videoProjects) return;
+    
+    // Use either hoveredProject or touchedProject (for mobile)
+    const activeProject = hoveredProject || touchedProject;
+    
+    // For each project video element
+    Object.keys(videoRefs.current).forEach(projectId => {
+      const videoElement = videoRefs.current[projectId];
+      const project = projects.videoProjects.find(p => p._id === projectId);
+      
+      if (!project || !videoElement) return;
+      
+      // Make sure we have a valid playback ID
+      const playbackId = project.video?.asset?.playbackId;
+      if (!playbackId) return;
+      
+      // Is this the hovered or touched project?
+      const isActive = activeProject?._id === projectId;
+      
+      try {
+        // Simplify video element lookup to reduce overhead
+        let videoEl = null;
+        
+        // Try to access the video element directly first
+        if (videoElement.shadowRoot) {
+          videoEl = videoElement.shadowRoot.querySelector('video');
+        }
+        
+        // If we can't find the video element, use the Mux component
+        if (!videoEl) {
+          videoEl = videoElement;
+        }
+        
+        // Store a persistent reference to the handler for faster cleanup
+        if (isActive) {
+          // Get hover preview settings
+          const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
+          const startTimeString = hoverPreview.startTime;
+          const endTimeString = hoverPreview.endTime;
+          
+          const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
+          const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
+          
+          // Set up time boundaries if needed and play immediately
+          if (endTime !== null && startTime !== endTime) {
+            videoEl.currentTime = startTime;
+            
+            // Only add the event listener if we need to handle looping
+            if (!videoElement._timeUpdateHandler) {
+              videoElement._timeUpdateHandler = () => {
+                if (videoEl.currentTime >= endTime) {
+                  videoEl.currentTime = startTime;
+                }
+              };
+              
+              videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
+            }
+          }
+          
+          // Play the video with a small timeout to allow browser to process
+          requestAnimationFrame(() => {
+            videoEl.play().catch(() => {
+              // Silent error handling
+            });
+          });
+        } else {
+          // Pause when not hovered/touched
+          videoEl.pause();
+          
+          // Clean up any timeupdate event listeners
+          if (videoElement._timeUpdateHandler) {
+            try {
+              videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
+              videoElement._timeUpdateHandler = null;
+            } catch {
+              // Ignore errors during cleanup
+            }
+          }
+          
+          // Set thumbnail frame
+          const thumbTime = getThumbTime(project);
+          
+          // Use setTimeout with 0ms to put this at the end of the event queue
+          // This ensures the pause command completes first
+          setTimeout(() => {
+            try {
+              videoEl.currentTime = thumbTime;
+            } catch {
+              // Silent error handling for seek operations
+            }
+          }, 0);
+        }
+      } catch {
+        // Silent error handling
+      }
+    });
+  }, [hoveredProject, touchedProject, projects.videoProjects]);
+
+  // Handle touch events on the gallery container
+  const handleTouchStart = (project, e) => {
+    // Prevent default to avoid immediate navigation on touch
+    e.preventDefault();
+    setTouchedProject(project);
   };
-  
+
   const handleTouchEnd = () => {
-    if (isMobile) {
-      setTouchedProjectId(null);
-    }
+    setTouchedProject(null);
   };
-  
+
+  // Add touchcancel handler to clean up if touch is interrupted
+  useEffect(() => {
+    const handleTouchCancel = () => {
+      setTouchedProject(null);
+    };
+
+    document.addEventListener('touchcancel', handleTouchCancel);
+    
+    return () => {
+      document.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  }, []);
+
   // No video projects to display
   if (!projects.videoProjects || projects.videoProjects.length === 0) {
     return <div className="bottom-gallery absolute bottom-0 left-0 right-0 px-2.5 z-[9]"></div>
@@ -157,11 +214,10 @@ export default function BottomGallery() {
               href={`/project/${project.slug}`}
               key={project._id}
               className="w-[calc(40vw-20px)] h-[calc(40vw-20px)] md:w-[200px] md:h-[200px] flex-shrink-0 relative overflow-hidden"
-              onMouseEnter={() => !isMobile && handleProjectHover(project)}
-              onMouseLeave={() => !isMobile && handleProjectLeave()}
-              onTouchStart={() => handleTouchStart(project._id)}
+              onMouseEnter={() => handleProjectHover(project)}
+              onMouseLeave={handleProjectLeave}
+              onTouchStart={(e) => handleTouchStart(project, e)}
               onTouchEnd={handleTouchEnd}
-              onTouchCancel={handleTouchEnd}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (
