@@ -478,11 +478,23 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     defaultShowControls={isIOS}
                     controls={isIOS ? {
                       defaultDuration: false,
-                      volume: false,
+                      volume: { 
+                        byLineTimeRange: false,
+                        control: false,
+                        mute: true
+                      },
                       fullscreen: true,
                       playbackRate: false,
                       pip: false,
                       cast: false,
+                      captions: false,
+                      seekBackward: false,
+                      seekForward: false,
+                      time: false,
+                      live: false,
+                      duration: false,
+                      play: true,
+                      rendition: false
                     } : false}
                     style={{
                       '--controls': isIOS ? 'default' : 'none',
@@ -491,6 +503,22 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                       '--poster-object-fit': 'contain', 
                       '--poster-object-position': 'center',
                       '--media-background-color': 'transparent',
+                      '--controls-alignment': 'horizontal',
+                      '--controls-play-button-display': 'block',
+                      '--controls-fullscreen-display': 'block',
+                      '--controls-mute-button-display': 'block',
+                      '--seek-backward-button-display': 'none',
+                      '--seek-forward-button-display': 'none',
+                      '--time-display': 'none',
+                      '--time-range': 'none',
+                      '--rendition-button-display': 'none',
+                      '--captions-button-display': 'none',
+                      '--captions-display': 'none',
+                      '--pip-button-display': 'none',
+                      '--cast-button-display': 'none',
+                      '--airplay-button-display': 'none',
+                      '--playback-rate-button-display': 'none',
+                      '--volume-range-display': 'none',
                       aspectRatio: videoAspectRatio,
                       position: 'absolute',
                       top: '0',
