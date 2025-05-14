@@ -48,15 +48,34 @@ export default function ImageGallery({ images, name }) {
       {/* Images gallery - one image at a time with click navigation */}
       <div className="fixed inset-0 flex items-center justify-center select-none">
         <div 
-          className="w-[100vw] h-[80vh] md:w-[75vw] md:h-[75vh] flex items-center justify-center cursor-pointer select-none"
-          onClick={goToNextImage}
+          className="w-[100vw] h-[70vh] md:w-[75vw] md:h-[75vh] flex items-center justify-center cursor-pointer select-none relative"
         >
+          {/* Left side click area for previous image */}
+          <div 
+            className="absolute left-0 top-0 w-1/2 h-full z-10 cursor-pointer" 
+            onClick={(e) => {
+              e.stopPropagation();
+              goToPrevImage();
+            }}
+            aria-label="Previous image"
+          />
+          
+          {/* Right side click area for next image */}
+          <div 
+            className="absolute right-0 top-0 w-1/2 h-full z-10 cursor-pointer" 
+            onClick={(e) => {
+              e.stopPropagation();
+              goToNextImage();
+            }}
+            aria-label="Next image"
+          />
+          
           <Image
             src={images[currentImageIndex]}
             alt={`${name} - Image ${currentImageIndex + 1}`}
             width={1200}
             height={800}
-            className="max-w-full max-h-full object-contain select-none"
+            className="max-w-full max-h-full object-contain select-none z-0"
             style={{
               maxHeight: 'calc(100% - 10px)',
               objectFit: 'contain'
