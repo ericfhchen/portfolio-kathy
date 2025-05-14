@@ -309,15 +309,42 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     if (containerRef.current) {
       // For iOS Safari: need to access the video element directly
       if (playerRef.current) {
-        const videoElement = playerRef.current.querySelector('video');
+        // Try to use MuxPlayer's API directly if available
+        if (playerRef.current.toggleFullscreen) {
+          playerRef.current.toggleFullscreen();
+          return;
+        }
+        
+        // Direct approach for iOS Safari - try multiple ways to find the video element
+        let videoElement = null;
+        
+        // Method 1: Direct querySelector on the player ref
+        videoElement = playerRef.current.querySelector('video');
+        
+        // Method 2: Find within the DOM tree
+        if (!videoElement && containerRef.current) {
+          videoElement = containerRef.current.querySelector('video');
+        }
+        
+        // Method 3: Look for mux-video element which might contain the video
+        if (!videoElement) {
+          const muxVideoElement = playerRef.current.querySelector('mux-video') || 
+                                 containerRef.current.querySelector('mux-video');
+          if (muxVideoElement) {
+            videoElement = muxVideoElement.querySelector('video') || muxVideoElement;
+          }
+        }
         
         if (videoElement) {
-          // iOS Safari
-          if (!isFullscreen && videoElement.webkitEnterFullscreen) {
+          // iOS Safari fullscreen methods
+          if (videoElement.webkitEnterFullscreen) {
             videoElement.webkitEnterFullscreen();
             return;
-          } else if (isFullscreen && videoElement.webkitExitFullscreen) {
-            videoElement.webkitExitFullscreen();
+          } else if (videoElement.requestFullscreen) {
+            videoElement.requestFullscreen();
+            return;
+          } else if (videoElement.webkitRequestFullscreen) {
+            videoElement.webkitRequestFullscreen();
             return;
           }
         }
