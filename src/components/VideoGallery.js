@@ -462,80 +462,69 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     maxHeight: '100%',
                   }}
                 >
-                  <MuxPlayer
-                    ref={playerRef}
-                    playbackId={playbackId}
-                    streamType="on-demand"
-                    title=" "
-                    accentColor='#000'
-                    primaryColor='#ffffff'
-                    secondaryColor='#000000'
-                    loop
-                    muted
-                    allowFullscreen
-                    poster={posterUrl}
-                    defaultHiddenCaptions
-                    defaultShowControls={isIOS}
-                    controls={isIOS ? {
-                      defaultDuration: false,
-                      volume: { 
-                        byLineTimeRange: false,
-                        control: false,
-                        mute: true
-                      },
-                      fullscreen: true,
-                      playbackRate: false,
-                      pip: false,
-                      cast: false,
-                      captions: false,
-                      seekBackward: false,
-                      seekForward: false,
-                      time: false,
-                      live: false,
-                      duration: false,
-                      play: true,
-                      rendition: false
-                    } : false}
-                    style={{
-                      '--controls': isIOS ? 'default' : 'none',
-                      '--media-object-fit': 'contain',
-                      '--media-object-position': 'center',
-                      '--poster-object-fit': 'contain', 
-                      '--poster-object-position': 'center',
-                      '--media-background-color': 'transparent',
-                      '--controls-alignment': 'horizontal',
-                      '--controls-play-button-display': 'block',
-                      '--controls-fullscreen-display': 'block',
-                      '--controls-mute-button-display': 'block',
-                      '--seek-backward-button-display': 'none',
-                      '--seek-forward-button-display': 'none',
-                      '--time-display': 'none',
-                      '--time-range': 'none',
-                      '--rendition-button-display': 'none',
-                      '--captions-button-display': 'none',
-                      '--captions-display': 'none',
-                      '--pip-button-display': 'none',
-                      '--cast-button-display': 'none',
-                      '--airplay-button-display': 'none',
-                      '--playback-rate-button-display': 'none',
-                      '--volume-range-display': 'none',
-                      aspectRatio: videoAspectRatio,
-                      position: 'absolute',
-                      top: '0',
-                      left: '0',
-                      width: '100%',
-                      height: '100%',
-                      zIndex: 1,
-                      boxSizing: 'border-box',
-                      objectFit: 'contain',
-                    }}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    onMuted={() => setIsMuted(true)}
-                    onUnmuted={() => setIsMuted(false)}
-                    onEnterFullscreen={() => setIsFullscreen(true)}
-                    onExitFullscreen={() => setIsFullscreen(false)}
-                  />
+                  {isIOS ? (
+                    // Use native HTML5 video for iOS with Safari's built-in controls
+                    <video
+                      ref={playerRef}
+                      src={`https://stream.mux.com/${playbackId}.m3u8`}
+                      poster={posterUrl}
+                      playsInline
+                      controls
+                      muted
+                      style={{
+                        position: 'absolute',
+                        top: '0',
+                        left: '0',
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 1,
+                        objectFit: 'contain',
+                        backgroundColor: 'transparent',
+                      }}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onVolumeChange={(e) => setIsMuted(e.target.muted)}
+                    />
+                  ) : (
+                    // Use MuxPlayer for non-iOS devices
+                    <MuxPlayer
+                      ref={playerRef}
+                      playbackId={playbackId}
+                      streamType="on-demand"
+                      title=" "
+                      accentColor='#000'
+                      primaryColor='#ffffff'
+                      secondaryColor='#000000'
+                      loop
+                      muted
+                      allowFullscreen
+                      poster={posterUrl}
+                      defaultHiddenCaptions
+                      style={{
+                        '--controls': 'none',
+                        '--media-object-fit': 'contain',
+                        '--media-object-position': 'center',
+                        '--poster-object-fit': 'contain', 
+                        '--poster-object-position': 'center',
+                        '--media-background-color': 'transparent',
+                        aspectRatio: videoAspectRatio,
+                        position: 'absolute',
+                        top: '0',
+                        left: '0',
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 1,
+                        boxSizing: 'border-box',
+                        objectFit: 'contain',
+                      }}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onMuted={() => setIsMuted(true)}
+                      onUnmuted={() => setIsMuted(false)}
+                      onEnterFullscreen={() => setIsFullscreen(true)}
+                      onExitFullscreen={() => setIsFullscreen(false)}
+                    />
+                  )}
                   
                   {/* Click overlay for play/pause - only show when not on iOS */}
                   {!isIOS && (
