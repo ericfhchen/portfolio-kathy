@@ -148,7 +148,7 @@ export default async function ProjectPage({ params }) {
           {/* Header with client and tagline */}
           <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-8">
             {project.client && (
-              <div className="text-center">
+              <div className="leading-[1.1] mb-[0.5] text-center">
                 {project.client.link ? (
                   <a href={project.client.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
                     {project.client.title}
