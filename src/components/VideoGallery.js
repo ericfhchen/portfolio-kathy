@@ -158,6 +158,12 @@ export default function VideoGallery({ videos, name, coverVideo }) {
           if (!isFullscreen && containerRef.current) {
             toggleFullscreen();
           }
+        } else if (e.key === 'ArrowRight') {
+          // Right arrow key to navigate to next video
+          goToNextVideo();
+        } else if (e.key === 'ArrowLeft') {
+          // Left arrow key to navigate to previous video
+          goToPrevVideo();
         }
       };
       
