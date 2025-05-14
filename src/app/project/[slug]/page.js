@@ -144,7 +144,6 @@ export default async function ProjectPage({ params }) {
 
       return (
         <div className="relative md:h-screen h-auto">
-
           
           {/* Header with client and tagline */}
           <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-8">
@@ -188,7 +187,8 @@ export default async function ProjectPage({ params }) {
           )}
         </div>
       )
-    } else {
+    } 
+    else {
       // Fetch the specific video project
       const project = await client.fetch(
         groq`*[_type == "videoProjects" && slug.current == $slug][0]{
@@ -301,7 +301,8 @@ export default async function ProjectPage({ params }) {
         </div>
       )
     }
-  } catch {
+  } catch (error) {
+    console.error("Error loading project:", error);
     // Error fetching project
     return (
       <div className="p-2">

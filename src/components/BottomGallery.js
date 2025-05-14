@@ -12,6 +12,7 @@ export default function BottomGallery() {
   const galleryRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [touchedProject, setTouchedProject] = useState(null);
+  const timeoutRef = useRef(null);
   
   // Register this gallery's container with the context
   useEffect(() => {
@@ -61,6 +62,18 @@ export default function BottomGallery() {
     
     // Fallback to 0
     return 0;
+  };
+  
+  // Get hover preview settings from a project
+  const getHoverPreviewSettings = (project) => {
+    const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
+    const startTimeString = hoverPreview.startTime;
+    const endTimeString = hoverPreview.endTime;
+    
+    const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
+    const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
+    
+    return { startTime, endTime };
   };
   
   // Reset a video element to its thumbnail frame
@@ -143,13 +156,8 @@ export default function BottomGallery() {
         
         // Store a persistent reference to the handler for faster cleanup
         if (isActive) {
-          // Get hover preview settings
-          const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
-          const startTimeString = hoverPreview.startTime;
-          const endTimeString = hoverPreview.endTime;
-          
-          const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
-          const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
+          // Get hover preview settings - extracted to separate function
+          const { startTime, endTime } = getHoverPreviewSettings(project);
           
           // Set up time boundaries if needed and play immediately
           if (endTime !== null && startTime !== endTime) {
@@ -165,6 +173,9 @@ export default function BottomGallery() {
               
               videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
             }
+          } else {
+            // No time boundaries, set a reasonable start position
+            videoEl.currentTime = startTime;
           }
           
           // Play the video with a small timeout to allow browser to process
@@ -190,15 +201,8 @@ export default function BottomGallery() {
           // Set thumbnail frame
           const thumbTime = getThumbTime(project);
           
-          // Use setTimeout with 0ms to put this at the end of the event queue
-          // This ensures the pause command completes first
-          setTimeout(() => {
-            try {
-              videoEl.currentTime = thumbTime;
-            } catch {
-              // Silent error handling for seek operations
-            }
-          }, 0);
+          // Force immediate update to thumbnail frame for better UX
+          videoEl.currentTime = thumbTime;
         }
       } catch {
         // Silent error handling
@@ -208,6 +212,12 @@ export default function BottomGallery() {
 
   // Handle touch events on the gallery container
   const handleTouchStart = (project, e) => {
+    // Clear any pending timeouts
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
     // Prevent default to avoid immediate navigation on touch
     e.preventDefault();
     setTouchedProject(project);
@@ -216,8 +226,26 @@ export default function BottomGallery() {
   const handleTouchEnd = () => {
     // If we have a previously touched project, reset its video
     if (touchedProject && touchedProject._id) {
-      resetVideoToThumbnail(touchedProject._id);
+      const projectId = touchedProject._id;
+      
+      // Immediately pause the video
+      try {
+        const videoElement = videoRefs.current[projectId];
+        if (videoElement) {
+          let videoEl = videoElement.shadowRoot?.querySelector('video') || videoElement;
+          videoEl.pause();
+        }
+      } catch {
+        // Silent error handling
+      }
+      
+      // Set a small timeout to ensure the video resets to the poster frame
+      // This timeout helps ensure the reset happens after touch processing
+      timeoutRef.current = setTimeout(() => {
+        resetVideoToThumbnail(projectId);
+      }, 50);
     }
+    
     setTouchedProject(null);
   };
 
@@ -235,6 +263,9 @@ export default function BottomGallery() {
     
     return () => {
       document.removeEventListener('touchcancel', handleTouchCancel);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [touchedProject, resetVideoToThumbnail]);
 
