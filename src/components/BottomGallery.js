@@ -117,19 +117,30 @@ export default function BottomGallery() {
     }
   };
   
-  // Setup video for active viewing - either hover or touch
+  // Update setupActiveVideo for better mobile performance
   const setupActiveVideo = (videoEl, videoElement, project) => {
     if (!videoEl || !project) return;
     
     // Get hover preview settings
     const { startTime, endTime } = getHoverPreviewSettings(project);
     
-    // Set the start time first
+    // Pause first to ensure we can seek
     try {
-      videoEl.currentTime = startTime;
-    } catch (e) {
-      console.log("Error setting start time:", e);
-    }
+      videoEl.pause();
+    } catch (e) {}
+    
+    // Use requestAnimationFrame for better timing of seek operations
+    requestAnimationFrame(() => {
+      // Set the start time
+      try {
+        videoEl.currentTime = startTime;
+        
+        // Play immediately after setting time
+        videoEl.play().catch(e => console.log("Play error:", e));
+      } catch (e) {
+        console.log("Error in setupActiveVideo:", e);
+      }
+    });
     
     // Setup looping if needed
     if (endTime !== null && startTime !== endTime) {
@@ -149,15 +160,6 @@ export default function BottomGallery() {
       } catch (e) {
         console.log("Error adding timeupdate handler:", e);
       }
-    }
-    
-    // Play the video
-    try {
-      videoEl.play().catch(e => {
-        console.log("Error playing video:", e);
-      });
-    } catch (e) {
-      console.log("Error initiating play:", e);
     }
   };
   
@@ -253,20 +255,24 @@ export default function BottomGallery() {
     };
   }, [hoveredProject, touchedProject, projects.videoProjects]);
 
-  // Fix 2: Enhance the touch handlers
+  // Modify handleTouchStart to preload the video
   const handleTouchStart = (project, e) => {
+    // Clear any pending timeouts
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     
+    // Prevent default to avoid immediate navigation on touch
     e.preventDefault();
+    
+    // Set the touched project and immediately try to preload the video
     setTouchedProject(project);
     
     // Preload the video immediately to reduce delay
     const videoEl = getVideoElement(project._id);
     if (videoEl) {
-      videoEl.load();
+      videoEl.load(); // Force preload
     }
   };
 

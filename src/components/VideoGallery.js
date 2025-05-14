@@ -149,6 +149,12 @@ export default function VideoGallery({ videos }) {
         if (isIOS) {
           playerRef.current.currentTime = 0;
           playerRef.current.pause();
+          
+          // Force poster refresh for iOS
+          const posterUrl = getPosterUrl(effectiveVideos[currentVideoIndex]);
+          if (posterUrl) {
+            playerRef.current.poster = posterUrl;
+          }
         } 
         // For MuxPlayer
         else if (playerRef.current.pause) {
@@ -158,7 +164,36 @@ export default function VideoGallery({ videos }) {
         console.log("Error resetting player on video change:", e);
       }
     }
-  }, [currentVideoIndex, mounted, isIOS]);
+  }, [currentVideoIndex, mounted, isIOS, effectiveVideos]);
+
+  // Add new effect to ensure thumbnails are properly initialized
+  useEffect(() => {
+    if (mounted && effectiveVideos.length > 0 && playerRef.current) {
+      // Force thumbnail refresh on initial mount
+      try {
+        const currentVideo = effectiveVideos[currentVideoIndex];
+        const posterUrl = getPosterUrl(currentVideo);
+        
+        // For iOS, we need to manually set the poster attribute
+        if (isIOS && playerRef.current) {
+          playerRef.current.poster = posterUrl;
+        }
+        
+        // For MuxPlayer, we can manipulate the currentTime to ensure proper thumbnail
+        if (!isIOS && playerRef.current) {
+          // Update the poster time through a direct DOM access if needed
+          if (playerRef.current.shadowRoot) {
+            const posterImg = playerRef.current.shadowRoot.querySelector('img');
+            if (posterImg && posterImg.src) {
+              posterImg.src = posterUrl;
+            }
+          }
+        }
+      } catch (e) {
+        console.log("Error initializing thumbnail:", e);
+      }
+    }
+  }, [mounted, effectiveVideos, currentVideoIndex, isIOS]);
 
   // Measure player width when video loads or changes
   useEffect(() => {
@@ -429,27 +464,28 @@ export default function VideoGallery({ videos }) {
     
     // Check thumbTime at the asset root level
     if (video?.asset?.thumbTime !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.thumbTime}`;
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.thumbTime}&width=960`;
     }
     
     // Check thumbTime in data object
     if (video?.asset?.data?.thumbTime !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbTime}`;
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbTime}&width=960`;
     }
     
     // Check for thumbnail_time in data (another possible format)
     if (video?.asset?.data?.thumbnail_time !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbnail_time}`;
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbnail_time}&width=960`;
     }
     
     // Additional check for Sanity MUX custom thumbnail time location
     // Sometimes Sanity stores it nested under data.playback_ids
     if (video?.asset?.data?.playback_ids?.[0]?.time !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.playback_ids[0].time}`;
+      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.playback_ids[0].time}&width=960`;
     }
     
     // Use first frame (time=0) as backup when no specific thumbnail time exists
-    return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=0`;
+    // Include width parameter for high quality
+    return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=0&width=960`;
   };
   
   const posterUrl = getPosterUrl(currentVideo);
@@ -546,7 +582,14 @@ export default function VideoGallery({ videos }) {
                       muted={false}
                       loop={false}
                       poster={posterUrl}
+                      preload="auto"
                       defaultHiddenCaptions
+                      defaultPosterTime={0}
+                      thumbnailTime={0}
+                      metadata={{
+                        video_title: currentVideo?.caption || "",
+                        player_name: "Portfolio Gallery"
+                      }}
                       style={{
                         '--controls': 'none',
                         '--media-object-fit': 'contain',
@@ -554,6 +597,9 @@ export default function VideoGallery({ videos }) {
                         '--poster-object-fit': 'contain', 
                         '--poster-object-position': 'center',
                         '--media-background-color': 'transparent',
+                        '--poster-background-color': 'transparent',
+                        '--placeholder-background-display': 'none',
+                        '--media-element-container-display': 'block',
                         aspectRatio: videoAspectRatio,
                         position: 'absolute',
                         top: '0',
