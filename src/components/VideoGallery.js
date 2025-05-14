@@ -19,7 +19,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
-  const [isiOS, setIsiOS] = useState(false);
+  const [fullscreenButtonRef, setFullscreenButtonRef] = useState(null);
   
   // Only run client-side code after mounting
   useEffect(() => {
@@ -307,91 +307,83 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   };
 
   const toggleFullscreen = () => {
-    // Special handling for iOS Safari
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
     if (isiOS) {
-      // Find the current video source
-      const muxVideoSrc = `https://stream.mux.com/${playbackId}/low.mp4`;
-      
-      // Create iOS-compatible fullscreen handler
-      const iosFullscreen = () => {
-        // 1. Create a wrapper that will hold our fullscreen video
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.top = '0';
-        wrapper.style.left = '0';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '100%';
-        wrapper.style.zIndex = '99999';
-        wrapper.style.background = 'black';
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.justifyContent = 'center';
+      // For iOS, find and use the actual video element
+      if (playerRef.current) {
+        // Strategy 1: Try finding the video element
+        const videoElement = playerRef.current.querySelector('video') || 
+                            document.querySelector('mux-player video') ||
+                            document.querySelector('video');
         
-        // 2. Create the video element
-        const video = document.createElement('video');
-        video.src = muxVideoSrc;
-        video.playsInline = false; // important for iOS fullscreen
-        video.controls = true; // native controls
-        video.autoplay = true;
-        video.style.width = '100%';
-        video.style.height = '100%';
-        video.style.objectFit = 'contain';
+        if (videoElement) {
+          try {
+            // Use the native iOS method
+            videoElement.webkitEnterFullscreen();
+            return;
+          } catch (error) {
+            console.log('iOS fullscreen error:', error);
+          }
+        }
         
-        // 3. Set up exit handler
-        const exitHandler = () => {
-          wrapper.remove();
-          if (playerRef.current) {
-            // Resume main player where the fullscreen left off
-            playerRef.current.currentTime = video.currentTime;
-            if (!video.paused) {
-              playerRef.current.play();
+        // Strategy 2: Try to use MuxPlayer's internal API if available
+        if (typeof playerRef.current.enterFullscreen === 'function') {
+          try {
+            playerRef.current.enterFullscreen();
+            return;
+          } catch (error) {
+            console.log('MuxPlayer fullscreen error:', error);
+          }
+        }
+        
+        // Strategy 3: Simulate clicking the native fullscreen button
+        try {
+          const nativeFullscreenButton = document.querySelector('.mux-player button[data-fullscreen]') ||
+                                          playerRef.current.shadowRoot?.querySelector('button[data-fullscreen]');
+          
+          if (nativeFullscreenButton) {
+            nativeFullscreenButton.click();
+            return;
+          }
+        } catch (error) {
+          console.log('Native button click error:', error);
+        }
+        
+        // Strategy 4: Use our hidden fullscreen button if it exists
+        if (fullscreenButtonRef) {
+          const playerNode = playerRef.current.getRootNode();
+          if (playerNode && playerNode.querySelector) {
+            const realFullscreenButton = playerNode.querySelector('[data-fullscreen]');
+            if (realFullscreenButton) {
+              realFullscreenButton.click();
+              return;
             }
           }
-        };
+        }
         
-        // 4. Add exit listeners
-        video.addEventListener('pause', exitHandler);
-        video.addEventListener('ended', exitHandler);
-        
-        // 5. Add click handler for manual exit
-        wrapper.addEventListener('click', (e) => {
-          if (e.target === wrapper) {
-            exitHandler();
+        // Strategy 5: Final fallback - show a message to the user
+        alert('Please use the pinch gesture to enter fullscreen mode');
+      }
+    } else {
+      // Standard approach for other browsers
+      if (containerRef.current) {
+        if (!isFullscreen) {
+          if (containerRef.current.requestFullscreen) {
+            containerRef.current.requestFullscreen();
+          } else if (containerRef.current.webkitRequestFullscreen) {
+            containerRef.current.webkitRequestFullscreen();
+          } else if (containerRef.current.msRequestFullscreen) {
+            containerRef.current.msRequestFullscreen();
           }
-        });
-        
-        // 6. Add to DOM and play
-        wrapper.appendChild(video);
-        document.body.appendChild(wrapper);
-        
-        // 7. Request fullscreen on the video
-        if (video.webkitEnterFullscreen) {
-          video.webkitEnterFullscreen();
-        }
-      };
-      
-      // Trigger iOS fullscreen
-      iosFullscreen();
-      return;
-    }
-    
-    // Standard approach for other browsers
-    if (containerRef.current) {
-      if (!isFullscreen) {
-        if (containerRef.current.requestFullscreen) {
-          containerRef.current.requestFullscreen();
-        } else if (containerRef.current.webkitRequestFullscreen) {
-          containerRef.current.webkitRequestFullscreen();
-        } else if (containerRef.current.msRequestFullscreen) {
-          containerRef.current.msRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
         }
       }
     }
@@ -407,14 +399,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       setProgress(percentage);
     }
   };
-
-  // Detect iOS devices
-  useEffect(() => {
-    if (mounted) {
-      const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      setIsiOS(iOS);
-    }
-  }, [mounted]);
 
   // If there are no valid videos, display a message
   if (!effectiveVideos || effectiveVideos.length === 0) {
@@ -470,6 +454,36 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       </div>
     );
   }
+  
+  useEffect(() => {
+    // Create a hidden button to trigger native iOS fullscreen
+    if (mounted && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+      // Create element only once
+      if (!fullscreenButtonRef) {
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.style.position = 'absolute';
+        fullscreenButton.style.opacity = '0';
+        fullscreenButton.style.pointerEvents = 'none';
+        fullscreenButton.style.width = '1px';
+        fullscreenButton.style.height = '1px';
+        fullscreenButton.style.overflow = 'hidden';
+        fullscreenButton.style.clip = 'rect(0 0 0 0)';
+        fullscreenButton.setAttribute('aria-hidden', 'true');
+        fullscreenButton.classList.add('mux-player-fullscreen-button');
+        
+        // Append to document
+        document.body.appendChild(fullscreenButton);
+        setFullscreenButtonRef(fullscreenButton);
+      }
+    }
+    
+    return () => {
+      // Clean up on unmount
+      if (fullscreenButtonRef) {
+        fullscreenButtonRef.remove();
+      }
+    };
+  }, [mounted]);
   
   return (
     <div className="video-gallery">
