@@ -57,6 +57,10 @@ export default function ImageGallery({ images, name }) {
             width={1200}
             height={800}
             className="max-w-full max-h-full object-contain select-none"
+            style={{
+              maxHeight: 'calc(100% - 10px)',
+              objectFit: 'contain'
+            }}
             priority={true}
             unselectable="on"
             draggable="false"
@@ -86,16 +90,16 @@ export default function ImageGallery({ images, name }) {
       
       {/* Navigation buttons - only show if more than 1 image */}
       {images.length > 1 && (
-        <div className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8">
+        <div className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8 z-10">
           <button 
             onClick={goToPrevImage} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-1"
           >
             Prev
           </button>
           <button 
             onClick={goToNextImage} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-1"
           >
             Next
           </button>
