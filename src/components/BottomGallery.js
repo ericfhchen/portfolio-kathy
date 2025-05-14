@@ -77,61 +77,41 @@ export default function BottomGallery() {
     return { startTime, endTime };
   };
   
-  // Reset a video element to its thumbnail frame
+  // Fix 1: Improve video element access consistency
+  const getVideoElement = (projectId) => {
+    const videoElement = videoRefs.current[projectId];
+    if (!videoElement) return null;
+    
+    // Try shadowRoot first, then fall back to direct reference
+    return videoElement.shadowRoot?.querySelector('video') || videoElement;
+  };
+  
+  // Fix 3: Improve the thumb time reset
   const resetVideoToThumbnail = (projectId) => {
-    if (!videoRefs.current[projectId]) return;
+    const videoEl = getVideoElement(projectId);
+    if (!videoEl) return;
     
     try {
-      const videoElement = videoRefs.current[projectId];
       const project = projects.videoProjects.find(p => p._id === projectId);
-      
       if (!project) return;
       
-      let videoEl = null;
-      
-      // Try to access the video element directly first
-      if (videoElement.shadowRoot) {
-        videoEl = videoElement.shadowRoot.querySelector('video');
-      }
-      
-      // If we can't find the video element, use the Mux component
-      if (!videoEl) {
-        videoEl = videoElement;
-      }
-      
-      // Pause the video
       videoEl.pause();
       
-      // Remove existing timeupdate handlers
+      // Remove existing handlers
       if (handlerRefs.current[projectId]) {
-        try {
-          videoEl.removeEventListener('timeupdate', handlerRefs.current[projectId]);
-          delete handlerRefs.current[projectId];
-        } catch (e) {
-          console.log("Error removing handler:", e);
-        }
+        videoEl.removeEventListener('timeupdate', handlerRefs.current[projectId]);
+        delete handlerRefs.current[projectId];
       }
       
-      // Set thumbnail frame
       const thumbTime = getThumbTime(project);
       
-      // Force update to thumbnail time
-      try {
+      // Force multiple updates to ensure the thumbnail sticks
+      videoEl.currentTime = thumbTime;
+      
+      // This helps on some mobile browsers that need a second attempt
+      requestAnimationFrame(() => {
         videoEl.currentTime = thumbTime;
-        
-        // For some browsers/devices, we need an additional forced update
-        setTimeout(() => {
-          try {
-            if (videoEl) {
-              videoEl.currentTime = thumbTime;
-            }
-          } catch (e) {
-            console.log("Error setting fallback thumb time:", e);
-          }
-        }, 10);
-      } catch (e) {
-        console.log("Error setting initial thumb time:", e);
-      }
+      });
     } catch (e) {
       console.log("Error in resetVideoToThumbnail:", e);
     }
@@ -273,17 +253,21 @@ export default function BottomGallery() {
     };
   }, [hoveredProject, touchedProject, projects.videoProjects]);
 
-  // Handle touch events on the gallery container
+  // Fix 2: Enhance the touch handlers
   const handleTouchStart = (project, e) => {
-    // Clear any pending timeouts
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     
-    // Prevent default to avoid immediate navigation on touch
     e.preventDefault();
     setTouchedProject(project);
+    
+    // Preload the video immediately to reduce delay
+    const videoEl = getVideoElement(project._id);
+    if (videoEl) {
+      videoEl.load();
+    }
   };
 
   const handleTouchEnd = () => {
