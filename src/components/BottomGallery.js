@@ -389,7 +389,7 @@ export default function BottomGallery() {
                         autoPlay={false}
                         muted={true}
                         loop={false}
-                        preload="auto"
+                        preload="metadata"
                         defaultPosterTime={thumbTime}
                         thumbnailTime={thumbTime}
                         style={{ 
