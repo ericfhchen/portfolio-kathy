@@ -153,6 +153,11 @@ export default function VideoGallery({ videos, name, coverVideo }) {
               setIsPlaying(false);
             }
           }
+        } else if (e.key === 'f' || e.key === 'F') {
+          // F key to enter fullscreen
+          if (!isFullscreen && containerRef.current) {
+            toggleFullscreen();
+          }
         }
       };
       
@@ -481,7 +486,14 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                         objectFit: 'contain',
                         backgroundColor: 'transparent',
                       }}
-                      onPlay={() => setIsPlaying(true)}
+                      onPlay={() => {
+                        // Auto unmute when user clicks play
+                        if (playerRef.current && playerRef.current.muted) {
+                          playerRef.current.muted = false;
+                          setIsMuted(false);
+                        }
+                        setIsPlaying(true);
+                      }}
                       onPause={() => setIsPlaying(false)}
                       onVolumeChange={(e) => setIsMuted(e.target.muted)}
                     />
