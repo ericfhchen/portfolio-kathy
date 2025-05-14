@@ -306,51 +306,45 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   };
 
   const toggleFullscreen = () => {
-    if (containerRef.current) {
-      // For iOS Safari: need to access the video element directly
-      if (playerRef.current) {
-        // Try to use MuxPlayer's API directly if available
-        if (playerRef.current.toggleFullscreen) {
-          playerRef.current.toggleFullscreen();
+    // For iOS Safari, we need a direct approach that works specifically on mobile
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
+    if (isiOS && playerRef.current) {
+      try {
+        // Try to access internal video element
+        const mediaEl = playerRef.current.mediaEl;
+        
+        if (mediaEl && mediaEl.webkitEnterFullscreen) {
+          mediaEl.webkitEnterFullscreen();
           return;
         }
         
-        // Direct approach for iOS Safari - try multiple ways to find the video element
-        let videoElement = null;
-        
-        // Method 1: Direct querySelector on the player ref
-        videoElement = playerRef.current.querySelector('video');
-        
-        // Method 2: Find within the DOM tree
-        if (!videoElement && containerRef.current) {
-          videoElement = containerRef.current.querySelector('video');
-        }
-        
-        // Method 3: Look for mux-video element which might contain the video
-        if (!videoElement) {
-          const muxVideoElement = playerRef.current.querySelector('mux-video') || 
-                                 containerRef.current.querySelector('mux-video');
-          if (muxVideoElement) {
-            videoElement = muxVideoElement.querySelector('video') || muxVideoElement;
+        // Look for any video element available and directly request fullscreen
+        const videoElements = document.querySelectorAll('video');
+        if (videoElements.length > 0) {
+          for (let i = 0; i < videoElements.length; i++) {
+            const video = videoElements[i];
+            if (video.webkitEnterFullscreen) {
+              video.webkitEnterFullscreen();
+              return;
+            }
           }
         }
-        
-        if (videoElement) {
-          // iOS Safari fullscreen methods
-          if (videoElement.webkitEnterFullscreen) {
-            videoElement.webkitEnterFullscreen();
-            return;
-          } else if (videoElement.requestFullscreen) {
-            videoElement.requestFullscreen();
-            return;
-          } else if (videoElement.webkitRequestFullscreen) {
-            videoElement.webkitRequestFullscreen();
-            return;
-          }
-        }
+      } catch (e) {
+        console.error("iOS fullscreen error:", e);
       }
       
-      // Standard fullscreen API for other browsers
+      // If all else fails, try to send a message to the MuxPlayer's internal component
+      if (playerRef.current && typeof playerRef.current.enterFullscreen === 'function') {
+        playerRef.current.enterFullscreen();
+        return;
+      }
+      
+      return;
+    }
+    
+    // Standard approach for other browsers
+    if (containerRef.current) {
       if (!isFullscreen) {
         if (containerRef.current.requestFullscreen) {
           containerRef.current.requestFullscreen();
@@ -493,6 +487,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
                     secondaryColor='#000000'
                     loop
                     muted
+                    playsInline={false}
                     poster={posterUrl}
                     style={{
                       '--controls': 'none',
