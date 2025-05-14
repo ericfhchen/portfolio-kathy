@@ -175,7 +175,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
         document.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [mounted, isFullscreen, isMuted]);
+  }, [mounted, isFullscreen, isMuted, goToNextVideo, goToPrevVideo, toggleFullscreen]);
 
   // Handle controls visibility
   useEffect(() => {
@@ -668,24 +668,24 @@ export default function VideoGallery({ videos, name, coverVideo }) {
         </div>
       )}
       
-      {/* Navigation buttons - only show if there's more than one video and not on iOS */}
-      {effectiveVideos.length > 1 && mounted && !isIOS && (
+      {/* Navigation buttons - now showing on all devices including iOS */}
+      {effectiveVideos.length > 1 && mounted && (
         <div 
           className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8 transition-opacity duration-300 ease-in-out"
           style={{
-            opacity: showControls ? 1 : 0,
-            pointerEvents: showControls ? 'auto' : 'none'
+            opacity: isIOS ? 1 : (showControls ? 1 : 0),
+            pointerEvents: isIOS ? 'auto' : (showControls ? 'auto' : 'none')
           }}
         >
           <button 
             onClick={goToPrevVideo} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-4 py-2"
           >
             Prev
           </button>
           <button 
             onClick={goToNextVideo} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1]"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-4 py-2"
           >
             Next
           </button>

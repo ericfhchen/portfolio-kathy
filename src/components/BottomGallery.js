@@ -213,7 +213,7 @@ export default function BottomGallery() {
     setTouchedProject(project);
   };
 
-  const handleTouchEnd = (project) => {
+  const handleTouchEnd = () => {
     // If we have a previously touched project, reset its video
     if (touchedProject && touchedProject._id) {
       resetVideoToThumbnail(touchedProject._id);
@@ -236,7 +236,7 @@ export default function BottomGallery() {
     return () => {
       document.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [touchedProject]);
+  }, [touchedProject, resetVideoToThumbnail]);
 
   // No video projects to display
   if (!projects.videoProjects || projects.videoProjects.length === 0) {
@@ -268,7 +268,7 @@ export default function BottomGallery() {
               onMouseEnter={() => handleProjectHover(project)}
               onMouseLeave={handleProjectLeave}
               onTouchStart={(e) => handleTouchStart(project, e)}
-              onTouchEnd={() => handleTouchEnd(project)}
+              onTouchEnd={() => handleTouchEnd()}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (

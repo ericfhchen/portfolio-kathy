@@ -39,7 +39,7 @@ export default function ImageGallery({ images, name }) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [goToNextImage, goToPrevImage]);
   
   if (!images || images.length === 0) return null;
   
