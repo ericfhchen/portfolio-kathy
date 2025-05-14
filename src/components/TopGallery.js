@@ -38,7 +38,7 @@ export default function TopGallery() {
             <Link 
               href={`/project/${project.slug}`}
               key={project._id}
-              className="w-[200px] h-[200px] flex-shrink-0 relative"
+              className="w-[calc(40vw-20px)] h-[calc(40vw-20px)] md:w-[200px] md:h-[200px] flex-shrink-0 relative"
               onMouseEnter={() => handleProjectHover(project)}
               onMouseLeave={handleProjectLeave}
             >

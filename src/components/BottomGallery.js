@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import Mux from '@mux/mux-player-react'
 import Image from 'next/image'
 
@@ -11,6 +11,16 @@ export default function BottomGallery() {
   const videoRefs = useRef({});
   const galleryRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const projectRefs = useRef({});
+  
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Register this gallery's container with the context
   useEffect(() => {
@@ -18,6 +28,35 @@ export default function BottomGallery() {
       registerBottomGallery(galleryRef.current);
     }
   }, [registerBottomGallery]);
+  
+  // Set up intersection observer for mobile scroll effects
+  useEffect(() => {
+    if (!isMobile || !projects.videoProjects) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          const projectId = entry.target.dataset.projectId;
+          const project = projects.videoProjects.find(p => p._id === projectId);
+          
+          if (entry.isIntersecting && project) {
+            handleProjectHover(project);
+          }
+        });
+      },
+      { 
+        threshold: 0.8, // When 80% of item is visible
+        root: scrollContainerRef.current
+      }
+    );
+    
+    // Observe all project elements
+    Object.values(projectRefs.current).forEach(ref => {
+      if (ref) observer.observe(ref);
+    });
+    
+    return () => observer.disconnect();
+  }, [isMobile, projects.videoProjects, handleProjectHover]);
   
   // Helper to convert time string (MM:SS or MM:SS.mm) to seconds
   const timeToSeconds = (timeStr) => {
@@ -185,9 +224,11 @@ export default function BottomGallery() {
             <Link 
               href={`/project/${project.slug}`}
               key={project._id}
-              className="w-[200px] h-[200px] flex-shrink-0 relative overflow-hidden"
-              onMouseEnter={() => handleProjectHover(project)}
-              onMouseLeave={handleProjectLeave}
+              ref={el => projectRefs.current[project._id] = el}
+              data-project-id={project._id}
+              className="w-[calc(40vw-20px)] h-[calc(40vw-20px)] md:w-[200px] md:h-[200px] flex-shrink-0 relative overflow-hidden"
+              onMouseEnter={() => !isMobile && handleProjectHover(project)}
+              onMouseLeave={() => !isMobile && handleProjectLeave()}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (
@@ -217,8 +258,8 @@ export default function BottomGallery() {
                         defaultPosterTime={thumbTime}
                         thumbnailTime={thumbTime}
                         style={{ 
-                          height: '200px',
-                          width: '200px',
+                          height: '100%',
+                          width: '100%',
                           objectFit: 'cover',
                           objectPosition: 'center',
                           '--controls': 'none',
@@ -231,8 +272,8 @@ export default function BottomGallery() {
                           '--aspect-ratio-y': '1',
                           '--media-width': '110%',
                           '--media-height': '110%',
-                          '--container-width': '220px',
-                          '--container-height': '220px',
+                          '--container-width': '100%',
+                          '--container-height': '100%',
                           pointerEvents: 'none',
                           overflow: 'hidden',
                           willChange: 'transform' // Add will-change to optimize rendering
