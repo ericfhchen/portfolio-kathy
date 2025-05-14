@@ -127,7 +127,7 @@ export default function BottomGallery() {
     // Pause first to ensure we can seek
     try {
       videoEl.pause();
-    } catch (e) {}
+    } catch (_) {}
     
     // Use requestAnimationFrame for better timing of seek operations
     requestAnimationFrame(() => {
