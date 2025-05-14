@@ -13,6 +13,7 @@ export default function BottomGallery() {
   const scrollContainerRef = useRef(null);
   const [touchedProject, setTouchedProject] = useState(null);
   const timeoutRef = useRef(null);
+  const handlerRefs = useRef({});
   
   // Register this gallery's container with the context
   useEffect(() => {
@@ -101,21 +102,82 @@ export default function BottomGallery() {
       // Pause the video
       videoEl.pause();
       
-      // Set thumbnail frame
-      const thumbTime = getThumbTime(project);
-      videoEl.currentTime = thumbTime;
-      
-      // Clean up any timeupdate event listeners
-      if (videoElement._timeUpdateHandler) {
+      // Remove existing timeupdate handlers
+      if (handlerRefs.current[projectId]) {
         try {
-          videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
-          videoElement._timeUpdateHandler = null;
-        } catch {
-          // Ignore errors during cleanup
+          videoEl.removeEventListener('timeupdate', handlerRefs.current[projectId]);
+          delete handlerRefs.current[projectId];
+        } catch (e) {
+          console.log("Error removing handler:", e);
         }
       }
-    } catch {
-      // Silent error handling
+      
+      // Set thumbnail frame
+      const thumbTime = getThumbTime(project);
+      
+      // Force update to thumbnail time
+      try {
+        videoEl.currentTime = thumbTime;
+        
+        // For some browsers/devices, we need an additional forced update
+        setTimeout(() => {
+          try {
+            if (videoEl) {
+              videoEl.currentTime = thumbTime;
+            }
+          } catch (e) {
+            console.log("Error setting fallback thumb time:", e);
+          }
+        }, 10);
+      } catch (e) {
+        console.log("Error setting initial thumb time:", e);
+      }
+    } catch (e) {
+      console.log("Error in resetVideoToThumbnail:", e);
+    }
+  };
+  
+  // Setup video for active viewing - either hover or touch
+  const setupActiveVideo = (videoEl, videoElement, project) => {
+    if (!videoEl || !project) return;
+    
+    // Get hover preview settings
+    const { startTime, endTime } = getHoverPreviewSettings(project);
+    
+    // Set the start time first
+    try {
+      videoEl.currentTime = startTime;
+    } catch (e) {
+      console.log("Error setting start time:", e);
+    }
+    
+    // Setup looping if needed
+    if (endTime !== null && startTime !== endTime) {
+      // Create a new handler and store it by project ID for later removal
+      const timeUpdateHandler = () => {
+        if (videoEl.currentTime >= endTime) {
+          videoEl.currentTime = startTime;
+        }
+      };
+      
+      // Store the handler for later cleanup
+      handlerRefs.current[project._id] = timeUpdateHandler;
+      
+      // Add the event listener
+      try {
+        videoEl.addEventListener('timeupdate', timeUpdateHandler);
+      } catch (e) {
+        console.log("Error adding timeupdate handler:", e);
+      }
+    }
+    
+    // Play the video
+    try {
+      videoEl.play().catch(e => {
+        console.log("Error playing video:", e);
+      });
+    } catch (e) {
+      console.log("Error initiating play:", e);
     }
   };
   
@@ -154,60 +216,61 @@ export default function BottomGallery() {
           videoEl = videoElement;
         }
         
-        // Store a persistent reference to the handler for faster cleanup
         if (isActive) {
-          // Get hover preview settings - extracted to separate function
-          const { startTime, endTime } = getHoverPreviewSettings(project);
-          
-          // Set up time boundaries if needed and play immediately
-          if (endTime !== null && startTime !== endTime) {
-            videoEl.currentTime = startTime;
-            
-            // Only add the event listener if we need to handle looping
-            if (!videoElement._timeUpdateHandler) {
-              videoElement._timeUpdateHandler = () => {
-                if (videoEl.currentTime >= endTime) {
-                  videoEl.currentTime = startTime;
-                }
-              };
-              
-              videoEl.addEventListener('timeupdate', videoElement._timeUpdateHandler);
-            }
-          } else {
-            // No time boundaries, set a reasonable start position
-            videoEl.currentTime = startTime;
+          // Setup the video for active viewing
+          setupActiveVideo(videoEl, videoElement, project);
+        } else {
+          // Reset videos that are not active
+          // Pause the video
+          try {
+            videoEl.pause();
+          } catch (e) {
+            console.log("Error pausing video:", e);
           }
           
-          // Play the video with a small timeout to allow browser to process
-          requestAnimationFrame(() => {
-            videoEl.play().catch(() => {
-              // Silent error handling
-            });
-          });
-        } else {
-          // Pause when not hovered/touched
-          videoEl.pause();
-          
-          // Clean up any timeupdate event listeners
-          if (videoElement._timeUpdateHandler) {
+          // Remove event handlers
+          if (handlerRefs.current[projectId]) {
             try {
-              videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
-              videoElement._timeUpdateHandler = null;
-            } catch {
-              // Ignore errors during cleanup
+              videoEl.removeEventListener('timeupdate', handlerRefs.current[projectId]);
+              delete handlerRefs.current[projectId];
+            } catch (e) {
+              console.log("Error removing handler:", e);
             }
           }
           
           // Set thumbnail frame
           const thumbTime = getThumbTime(project);
           
-          // Force immediate update to thumbnail frame for better UX
-          videoEl.currentTime = thumbTime;
+          // Force update to thumbnail frame
+          try {
+            videoEl.currentTime = thumbTime;
+          } catch (e) {
+            console.log("Error setting thumb time:", e);
+          }
         }
-      } catch {
-        // Silent error handling
+      } catch (e) {
+        console.log("General error in video handling:", e);
       }
     });
+    
+    // Cleanup function
+    return () => {
+      // Remove all event handlers when component unmounts or dependencies change
+      Object.entries(handlerRefs.current).forEach(([projectId, handler]) => {
+        try {
+          const videoElement = videoRefs.current[projectId];
+          if (videoElement) {
+            const videoEl = videoElement.shadowRoot?.querySelector('video') || videoElement;
+            videoEl.removeEventListener('timeupdate', handler);
+          }
+        } catch (e) {
+          console.log("Error in cleanup:", e);
+        }
+      });
+      
+      // Clear the handlers object
+      handlerRefs.current = {};
+    };
   }, [hoveredProject, touchedProject, projects.videoProjects]);
 
   // Handle touch events on the gallery container
@@ -228,25 +291,41 @@ export default function BottomGallery() {
     if (touchedProject && touchedProject._id) {
       const projectId = touchedProject._id;
       
+      // Make a local reference to the touched project before we clear it
+      const projectToReset = touchedProject;
+      
+      // Clear the touched project state immediately
+      setTouchedProject(null);
+      
       // Immediately pause the video
       try {
         const videoElement = videoRefs.current[projectId];
         if (videoElement) {
           let videoEl = videoElement.shadowRoot?.querySelector('video') || videoElement;
           videoEl.pause();
+          
+          // Remove any timeupdate handlers
+          if (handlerRefs.current[projectId]) {
+            videoEl.removeEventListener('timeupdate', handlerRefs.current[projectId]);
+            delete handlerRefs.current[projectId];
+          }
+          
+          // Force thumbnail frame immediately
+          const thumbTime = getThumbTime(projectToReset);
+          videoEl.currentTime = thumbTime;
         }
-      } catch {
-        // Silent error handling
+      } catch (e) {
+        console.log("Error in touch end handler:", e);
       }
       
       // Set a small timeout to ensure the video resets to the poster frame
-      // This timeout helps ensure the reset happens after touch processing
+      // This helps on some mobile browsers that need a second attempt
       timeoutRef.current = setTimeout(() => {
         resetVideoToThumbnail(projectId);
       }, 50);
+    } else {
+      setTouchedProject(null);
     }
-    
-    setTouchedProject(null);
   };
 
   // Add touchcancel handler to clean up if touch is interrupted
@@ -300,6 +379,7 @@ export default function BottomGallery() {
               onMouseLeave={handleProjectLeave}
               onTouchStart={(e) => handleTouchStart(project, e)}
               onTouchEnd={() => handleTouchEnd()}
+              onTouchCancel={() => handleTouchEnd()}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (

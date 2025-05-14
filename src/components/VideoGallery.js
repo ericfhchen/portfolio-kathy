@@ -8,7 +8,7 @@ export default function VideoGallery({ videos }) {
   const [mounted, setMounted] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerWidth, setPlayerWidth] = useState(0);
   const [playerHeight, setPlayerHeight] = useState(0);
@@ -53,7 +53,24 @@ export default function VideoGallery({ videos }) {
     );
     setIsPlaying(false);
     setProgress(0);
-  }, [effectiveVideos]);
+    
+    // Reset player if it exists
+    if (playerRef.current) {
+      try {
+        // For iOS native video element
+        if (isIOS) {
+          playerRef.current.currentTime = 0;
+          playerRef.current.pause();
+        } 
+        // For MuxPlayer
+        else if (playerRef.current.pause) {
+          playerRef.current.pause();
+        }
+      } catch (e) {
+        console.log("Error resetting player:", e);
+      }
+    }
+  }, [effectiveVideos, isIOS]);
   
   const goToPrevVideo = useCallback(() => {
     if (!effectiveVideos || effectiveVideos.length === 0) return;
@@ -63,7 +80,24 @@ export default function VideoGallery({ videos }) {
     );
     setIsPlaying(false);
     setProgress(0);
-  }, [effectiveVideos]);
+    
+    // Reset player if it exists
+    if (playerRef.current) {
+      try {
+        // For iOS native video element
+        if (isIOS) {
+          playerRef.current.currentTime = 0;
+          playerRef.current.pause();
+        } 
+        // For MuxPlayer
+        else if (playerRef.current.pause) {
+          playerRef.current.pause();
+        }
+      } catch (e) {
+        console.log("Error resetting player:", e);
+      }
+    }
+  }, [effectiveVideos, isIOS]);
   
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -103,6 +137,28 @@ export default function VideoGallery({ videos }) {
       }
     }
   }, [isFullscreen]);
+
+  // Reset player when video changes
+  useEffect(() => {
+    if (mounted && playerRef.current) {
+      setIsPlaying(false);
+      setProgress(0);
+      
+      try {
+        // For iOS native video element
+        if (isIOS) {
+          playerRef.current.currentTime = 0;
+          playerRef.current.pause();
+        } 
+        // For MuxPlayer
+        else if (playerRef.current.pause) {
+          playerRef.current.pause();
+        }
+      } catch (e) {
+        console.log("Error resetting player on video change:", e);
+      }
+    }
+  }, [currentVideoIndex, mounted, isIOS]);
 
   // Measure player width when video loads or changes
   useEffect(() => {
@@ -216,11 +272,6 @@ export default function VideoGallery({ videos }) {
         if (playerRef.current) {
           if (playerRef.current.paused) {
             playerRef.current.play();
-            // Also unmute if currently muted
-            if (isMuted) {
-              playerRef.current.muted = false;
-              setIsMuted(false);
-            }
             setIsPlaying(true);
           } else {
             playerRef.current.pause();
@@ -248,7 +299,7 @@ export default function VideoGallery({ videos }) {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [mounted, isFullscreen, isMuted, goToNextVideo, goToPrevVideo, toggleFullscreen]);
+  }, [mounted, isFullscreen, goToNextVideo, goToPrevVideo, toggleFullscreen]);
 
   // Handle controls visibility
   useEffect(() => {
@@ -330,15 +381,11 @@ export default function VideoGallery({ videos }) {
     if (playerRef.current) {
       if (isPlaying) {
         playerRef.current.pause();
+        setIsPlaying(false);
       } else {
         playerRef.current.play();
-        // Unmute video if it's currently muted when playing
-        if (isMuted) {
-          playerRef.current.muted = false;
-          setIsMuted(false);
-        }
+        setIsPlaying(true);
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -469,7 +516,6 @@ export default function VideoGallery({ videos }) {
                       poster={posterUrl}
                       playsInline
                       controls
-                      muted
                       style={{
                         position: 'absolute',
                         top: '0',
@@ -481,11 +527,6 @@ export default function VideoGallery({ videos }) {
                         backgroundColor: 'transparent',
                       }}
                       onPlay={() => {
-                        // Auto unmute when user clicks play
-                        if (playerRef.current && playerRef.current.muted) {
-                          playerRef.current.muted = false;
-                          setIsMuted(false);
-                        }
                         setIsPlaying(true);
                       }}
                       onPause={() => setIsPlaying(false)}
@@ -501,9 +542,9 @@ export default function VideoGallery({ videos }) {
                       accentColor='#000'
                       primaryColor='#ffffff'
                       secondaryColor='#000000'
-                      loop
-                      muted
-                      allowFullscreen
+                      autoPlay={false}
+                      muted={false}
+                      loop={false}
                       poster={posterUrl}
                       defaultHiddenCaptions
                       style={{
@@ -644,7 +685,7 @@ export default function VideoGallery({ videos }) {
       </div>
       
       {/* Caption if available */}
-      {currentVideo.caption && mounted && !isIOS && (
+      {currentVideo?.caption && mounted && !isIOS && (
         <div 
           className="fixed bottom-12 left-0 right-0 text-center transition-opacity duration-300 ease-in-out"
           style={{
@@ -667,13 +708,13 @@ export default function VideoGallery({ videos }) {
         >
           <button 
             onClick={goToPrevVideo} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-4 py-2"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-1"
           >
             Prev
           </button>
           <button 
             onClick={goToNextVideo} 
-            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-4 py-2"
+            className="uppercase hover:opacity-60 transition-opacity leading-[1] px-1"
           >
             Next
           </button>
