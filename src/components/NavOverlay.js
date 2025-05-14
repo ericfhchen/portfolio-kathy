@@ -92,6 +92,23 @@ export default function NavOverlay() {
     return () => unsubscribe();
   }, []);
 
+  // Add ESC key handler to close overlay
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOverlayVisible) {
+        handleClose();
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up event listener
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOverlayVisible]);
+
   if (!isOverlayVisible) return null;
 
   const handleClose = () => {
