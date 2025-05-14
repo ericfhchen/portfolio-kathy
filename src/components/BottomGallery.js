@@ -63,6 +63,49 @@ export default function BottomGallery() {
     return 0;
   };
   
+  // Reset a video element to its thumbnail frame
+  const resetVideoToThumbnail = (projectId) => {
+    if (!videoRefs.current[projectId]) return;
+    
+    try {
+      const videoElement = videoRefs.current[projectId];
+      const project = projects.videoProjects.find(p => p._id === projectId);
+      
+      if (!project) return;
+      
+      let videoEl = null;
+      
+      // Try to access the video element directly first
+      if (videoElement.shadowRoot) {
+        videoEl = videoElement.shadowRoot.querySelector('video');
+      }
+      
+      // If we can't find the video element, use the Mux component
+      if (!videoEl) {
+        videoEl = videoElement;
+      }
+      
+      // Pause the video
+      videoEl.pause();
+      
+      // Set thumbnail frame
+      const thumbTime = getThumbTime(project);
+      videoEl.currentTime = thumbTime;
+      
+      // Clean up any timeupdate event listeners
+      if (videoElement._timeUpdateHandler) {
+        try {
+          videoEl.removeEventListener('timeupdate', videoElement._timeUpdateHandler);
+          videoElement._timeUpdateHandler = null;
+        } catch {
+          // Ignore errors during cleanup
+        }
+      }
+    } catch {
+      // Silent error handling
+    }
+  };
+  
   // Handle playing videos on hover or touch - optimized version
   useEffect(() => {
     if (!projects.videoProjects) return;
@@ -170,13 +213,21 @@ export default function BottomGallery() {
     setTouchedProject(project);
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (project) => {
+    // If we have a previously touched project, reset its video
+    if (touchedProject && touchedProject._id) {
+      resetVideoToThumbnail(touchedProject._id);
+    }
     setTouchedProject(null);
   };
 
   // Add touchcancel handler to clean up if touch is interrupted
   useEffect(() => {
     const handleTouchCancel = () => {
+      // Reset the previously touched project if any
+      if (touchedProject && touchedProject._id) {
+        resetVideoToThumbnail(touchedProject._id);
+      }
       setTouchedProject(null);
     };
 
@@ -185,7 +236,7 @@ export default function BottomGallery() {
     return () => {
       document.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, []);
+  }, [touchedProject]);
 
   // No video projects to display
   if (!projects.videoProjects || projects.videoProjects.length === 0) {
@@ -217,7 +268,7 @@ export default function BottomGallery() {
               onMouseEnter={() => handleProjectHover(project)}
               onMouseLeave={handleProjectLeave}
               onTouchStart={(e) => handleTouchStart(project, e)}
-              onTouchEnd={handleTouchEnd}
+              onTouchEnd={() => handleTouchEnd(project)}
             >
               <div className="relative w-full h-full overflow-hidden">
                   {hasValidVideo ? (
