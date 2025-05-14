@@ -15,13 +15,49 @@ export async function generateMetadata({ params }) {
       slug.current == $slug
     ][0]{
       name,
-      _type
+      _type,
+      projectTagline,
+      client->{
+        title
+      }
     }`,
     { slug }
   )
+
+  // Fetch site information for default title template
+  const siteInfo = await client.fetch(
+    groq`*[_type == "siteInfo"][0]{
+      title,
+      keywords
+    }`
+  )
+  
+  if (!project) {
+    return {
+      title: 'Project Not Found'
+    }
+  }
+
+  const description = project.projectTagline || 
+    `${project.name}${project.client?.title ? ` - ${project.client.title}` : ''}`;
+  
+  // Create keywords based on project name and client
+  const projectKeywords = [
+    project.name,
+    project.client?.title,
+    project._type === 'imageProjects' ? 'photography' : 'video',
+    ...(siteInfo?.keywords?.split(',') || [])
+  ].filter(Boolean).join(', ');
   
   return {
-    title: project?.name || 'Project'
+    title: project.name,
+    description: description,
+    keywords: projectKeywords,
+    openGraph: {
+      title: project.name,
+      description: description,
+      type: 'article',
+    }
   }
 }
 
@@ -266,7 +302,7 @@ export default async function ProjectPage({ params }) {
       )
     }
   } catch (error) {
-    console.error('Error fetching project:', error)
+    // Error fetching project
     return (
       <div className="p-2">
         <h1>Error loading project</h1>

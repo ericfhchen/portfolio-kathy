@@ -20,12 +20,24 @@
 /* Remove blue outline from all selected elements */
 * {
   outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent all selection */
+.select-none, img, .image-gallery, .image-gallery * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Ensure focus states are still accessible but without the default blue outline */
 *:focus {
   outline: none;
 }
+
+
 
 /* Remove outline from buttons, inputs, and other interactive elements */
 button:focus,

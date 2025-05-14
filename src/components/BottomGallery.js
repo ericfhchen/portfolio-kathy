@@ -239,7 +239,6 @@ export default function BottomGallery() {
                         }}
                         disableCookies={true}
                         playerSoftware="custom:portfolio"
-                        debug={false}
                         playsInline={true}
                         nohotkeys
                         controls={false}

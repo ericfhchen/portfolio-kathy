@@ -28,5 +28,12 @@ export const clientType = defineType({
       name: 'link',
       type: 'url',
     }),
+    defineField({
+      name: 'showInSelectedClients',
+      title: 'Show in Selected Clients',
+      type: 'boolean',
+      description: 'Toggle to show/hide this client in the Selected Clients list',
+      initialValue: true,
+    }),
   ],
 })

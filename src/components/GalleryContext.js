@@ -66,7 +66,6 @@ export function GalleryProvider({ children }) {
         if (scrollContainer) {
           const scrollDelta = e.deltaX || e.deltaY * 1.5;
           scrollContainer.scrollLeft += scrollDelta;
-          console.log('Global wheel: scrolling top gallery', scrollDelta);
         }
         return;
       }
@@ -83,7 +82,6 @@ export function GalleryProvider({ children }) {
         if (scrollContainer) {
           const scrollDelta = e.deltaX || e.deltaY * 1.5;
           scrollContainer.scrollLeft += scrollDelta;
-          console.log('Global wheel: scrolling bottom gallery', scrollDelta);
         }
         return;
       }
@@ -180,7 +178,7 @@ export function GalleryProvider({ children }) {
         setProjects({ imageProjects, videoProjects: enhancedProjects });
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        // Error fetching projects
         setProjects({ imageProjects: [], videoProjects: [] });
         setLoading(false);
       }

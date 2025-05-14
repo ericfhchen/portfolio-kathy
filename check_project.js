@@ -1,1 +1,19 @@
-const { createClient } = require('@sanity/client'); const client = createClient({ projectId: 'k2z5i1vx', dataset: 'production', apiVersion: '2023-05-03', useCdn: false }); async function main() { try { const result = await client.fetch('*[_type == "videoProjects" && name == "Nike - See Her Shine"] {_id, video}'); console.log(JSON.stringify(result, null, 2)); } catch (err) { console.error('Error:', err); } } main();
+const { createClient } = require('@sanity/client'); 
+
+const client = createClient({ 
+  projectId: 'k2z5i1vx', 
+  dataset: 'production', 
+  apiVersion: '2023-05-03', 
+  useCdn: false 
+}); 
+
+async function main() { 
+  try { 
+    const result = await client.fetch('*[_type == "videoProjects" && name == "Nike - See Her Shine"] {_id, video}'); 
+    // Data fetched successfully
+  } catch (err) { 
+    // Error handling silently
+  } 
+} 
+
+main();

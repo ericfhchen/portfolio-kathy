@@ -91,7 +91,7 @@ export default function VideoGallery({ videos, name, coverVideo }) {
           setPlayerWidth(playerWidthValue);
           setPlayerHeight(playerHeightValue);
         } catch (e) {
-          console.error("Error measuring player:", e);
+          // Error measuring player
         }
       };
       
@@ -307,6 +307,23 @@ export default function VideoGallery({ videos, name, coverVideo }) {
 
   const toggleFullscreen = () => {
     if (containerRef.current) {
+      // For iOS Safari: need to access the video element directly
+      if (playerRef.current) {
+        const videoElement = playerRef.current.querySelector('video');
+        
+        if (videoElement) {
+          // iOS Safari
+          if (!isFullscreen && videoElement.webkitEnterFullscreen) {
+            videoElement.webkitEnterFullscreen();
+            return;
+          } else if (isFullscreen && videoElement.webkitExitFullscreen) {
+            videoElement.webkitExitFullscreen();
+            return;
+          }
+        }
+      }
+      
+      // Standard fullscreen API for other browsers
       if (!isFullscreen) {
         if (containerRef.current.requestFullscreen) {
           containerRef.current.requestFullscreen();

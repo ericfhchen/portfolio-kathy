@@ -24,7 +24,8 @@ export const navEvents = {
 
 export default function NavOverlay() {
   const [isOverlayVisible, setOverlayVisible] = useState(false);
-  const [clients, setClients] = useState([]);
+  const [allClients, setAllClients] = useState([]);
+  const [visibleClients, setVisibleClients] = useState([]);
   const [siteInfo, setSiteInfo] = useState({
     bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur id mi fringilla, euismod tellus sit amet, dictum elit.',
     contactText: 'Booking and commissions are currently open.',
@@ -32,6 +33,53 @@ export default function NavOverlay() {
     instagramLink: 'https://www.instagram.com/recognizekat',
     instagramText: 'Instagram',
   });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch all clients
+        const allClientsQuery = groq`*[_type == "clients"] | order(orderRank) { 
+          _id, 
+          title, 
+          link, 
+          showInSelectedClients 
+        }`;
+        const allClientsData = await client.fetch(allClientsQuery);
+        setAllClients(allClientsData);
+        
+        // Filter clients to only show those with showInSelectedClients === true
+        const filtered = allClientsData.filter(c => c.showInSelectedClients === true);
+        setVisibleClients(filtered);
+        
+        // Fetch site information
+        const siteInfoQuery = groq`*[_type == "siteInfo"][0]{
+          bio,
+          contactText,
+          email,
+          instagramLink,
+          instagramText
+        }`;
+        
+        const siteInfoData = await client.fetch(siteInfoQuery);
+        if (siteInfoData) {
+          setSiteInfo(prev => ({
+            ...prev,
+            ...siteInfoData
+          }));
+        }
+      } catch (error) {
+        // Error fetching data
+        // Keep using default values if there's an error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = navEvents.subscribe((forceState) => {
@@ -45,41 +93,6 @@ export default function NavOverlay() {
 
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      // Fetch clients
-      const clientsQuery = groq`*[_type == "clients"] { _id, title, link }`;
-      const clientsData = await client.fetch(clientsQuery);
-      setClients(clientsData);
-      
-      // Fetch site information
-      const siteInfoQuery = groq`*[_type == "siteInfo"][0]{
-        bio,
-        contactText,
-        email,
-        instagramLink,
-        instagramText
-      }`;
-      
-      try {
-        const siteInfoData = await client.fetch(siteInfoQuery);
-        if (siteInfoData) {
-          setSiteInfo(prev => ({
-            ...prev,
-            ...siteInfoData
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching site info:', error);
-        // Keep using default values if there's an error
-      }
-    };
-
-    if (isOverlayVisible) {
-      fetchData();
-    }
-  }, [isOverlayVisible]);
 
   if (!isOverlayVisible) return null;
 
@@ -109,6 +122,7 @@ export default function NavOverlay() {
           </div>
         </div>
 
+        {/* Always show the content, even if it's loading */}
         {/* Mobile Content - Vertical Layout */}
         <div className="md:hidden pt-8 pb-4 flex flex-col gap-6">
           {/* Bio Section */}
@@ -122,17 +136,23 @@ export default function NavOverlay() {
           <div className="w-full">
             <div className="font-bold mb-2">Selected Clients</div>
             <div className="flex flex-col gap-0">
-              {clients.map(client => (
-                <div key={client._id}>
-                  {client.link ? (
-                    <Link href={client.link} target="_blank" rel="noopener noreferrer">
-                      {client.title}
-                    </Link>
-                  ) : (
-                    <span>{client.title}</span>
-                  )}
-                </div>
-              ))}
+              {isLoading ? (
+                <div>Loading clients...</div>
+              ) : visibleClients.length === 0 ? (
+                <div>No clients to display</div>
+              ) : (
+                visibleClients.map(client => (
+                  <div key={client._id}>
+                    {client.link ? (
+                      <Link href={client.link} target="_blank" rel="noopener noreferrer">
+                        {client.title}
+                      </Link>
+                    ) : (
+                      <span>{client.title}</span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -198,17 +218,23 @@ export default function NavOverlay() {
 
             {/* Clients */}
             <div className="flex flex-col w-1/6">
-              {clients.map(client => (
-                <div key={client._id}>
-                  {client.link ? (
-                    <Link href={client.link} target="_blank" rel="noopener noreferrer">
-                      {client.title}
-                    </Link>
-                  ) : (
-                    <span>{client.title}</span>
-                  )}
-                </div>
-              ))}
+              {isLoading ? (
+                <div>Loading clients...</div>
+              ) : visibleClients.length === 0 ? (
+                <div>No clients to display</div>
+              ) : (
+                visibleClients.map(client => (
+                  <div key={client._id}>
+                    {client.link ? (
+                      <Link href={client.link} target="_blank" rel="noopener noreferrer">
+                        {client.title}
+                      </Link>
+                    ) : (
+                      <span>{client.title}</span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Contact */}
