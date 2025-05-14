@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import MuxPlayer from '@mux/mux-player-react'
 
 
@@ -29,7 +29,80 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
-  }, [videos, coverVideo]);
+  }, [videos]);
+
+  // Use useMemo to calculate effective videos that won't change on every render
+  const effectiveVideos = useMemo(() => {
+    // Filter out invalid videos (those without a playback ID)
+    const validVideos = videos?.filter(video => {
+      if (!video?.asset) return false;
+      // Check for playbackId in the expected location for Mux videos
+      return !!video.asset.playbackId;
+    }) || [];
+
+    // Return only valid videos, no fallback to coverVideo
+    return validVideos;
+  }, [videos]);
+
+  // Use useCallback to memoize navigation functions
+  const goToNextVideo = useCallback(() => {
+    if (!effectiveVideos || effectiveVideos.length === 0) return;
+    
+    setCurrentVideoIndex((prev) => 
+      prev === effectiveVideos.length - 1 ? 0 : prev + 1
+    );
+    setIsPlaying(false);
+    setProgress(0);
+  }, [effectiveVideos]);
+  
+  const goToPrevVideo = useCallback(() => {
+    if (!effectiveVideos || effectiveVideos.length === 0) return;
+    
+    setCurrentVideoIndex((prev) => 
+      prev === 0 ? effectiveVideos.length - 1 : prev - 1
+    );
+    setIsPlaying(false);
+    setProgress(0);
+  }, [effectiveVideos]);
+  
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    // For iOS Safari: need to access the video element directly
+    if (playerRef.current) {
+      const videoElement = playerRef.current.querySelector('video');
+      
+      if (videoElement) {
+        // iOS Safari
+        if (!isFullscreen && videoElement.webkitEnterFullscreen) {
+          videoElement.webkitEnterFullscreen();
+          return;
+        } else if (isFullscreen && videoElement.webkitExitFullscreen) {
+          videoElement.webkitExitFullscreen();
+          return;
+        }
+      }
+    }
+    
+    // Standard fullscreen API for other browsers
+    if (!isFullscreen) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen();
+      } else if (containerRef.current.webkitRequestFullscreen) {
+        containerRef.current.webkitRequestFullscreen();
+      } else if (containerRef.current.msRequestFullscreen) {
+        containerRef.current.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+  }, [isFullscreen]);
 
   // Measure player width when video loads or changes
   useEffect(() => {
@@ -128,53 +201,53 @@ export default function VideoGallery({ videos, name, coverVideo }) {
 
   // Add event listeners for fullscreen changes and keyboard shortcuts
   useEffect(() => {
-    if (mounted) {
-      const handleFullscreenChange = () => {
-        const isDocumentFullscreen = document.fullscreenElement !== null;
-        setIsFullscreen(isDocumentFullscreen);
-      };
-      
-      const handleKeyDown = (e) => {
-        if (e.key === 'Escape' && isFullscreen) {
-          setIsFullscreen(false);
-        } else if (e.key === ' ' || e.key === 'k') {
-          // Space or K key for play/pause
-          if (playerRef.current) {
-            if (playerRef.current.paused) {
-              playerRef.current.play();
-              // Also unmute if currently muted
-              if (isMuted) {
-                playerRef.current.muted = false;
-                setIsMuted(false);
-              }
-              setIsPlaying(true);
-            } else {
-              playerRef.current.pause();
-              setIsPlaying(false);
+    if (!mounted) return;
+    
+    const handleFullscreenChange = () => {
+      const isDocumentFullscreen = document.fullscreenElement !== null;
+      setIsFullscreen(isDocumentFullscreen);
+    };
+    
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      } else if (e.key === ' ' || e.key === 'k') {
+        // Space or K key for play/pause
+        if (playerRef.current) {
+          if (playerRef.current.paused) {
+            playerRef.current.play();
+            // Also unmute if currently muted
+            if (isMuted) {
+              playerRef.current.muted = false;
+              setIsMuted(false);
             }
+            setIsPlaying(true);
+          } else {
+            playerRef.current.pause();
+            setIsPlaying(false);
           }
-        } else if (e.key === 'f' || e.key === 'F') {
-          // F key to enter fullscreen
-          if (!isFullscreen && containerRef.current) {
-            toggleFullscreen();
-          }
-        } else if (e.key === 'ArrowRight') {
-          // Right arrow key to navigate to next video
-          goToNextVideo();
-        } else if (e.key === 'ArrowLeft') {
-          // Left arrow key to navigate to previous video
-          goToPrevVideo();
         }
-      };
-      
-      document.addEventListener('fullscreenchange', handleFullscreenChange);
-      document.addEventListener('keydown', handleKeyDown);
-      
-      return () => {
-        document.removeEventListener('fullscreenchange', handleFullscreenChange);
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-    }
+      } else if (e.key === 'f' || e.key === 'F') {
+        // F key to enter fullscreen
+        if (!isFullscreen && containerRef.current) {
+          toggleFullscreen();
+        }
+      } else if (e.key === 'ArrowRight') {
+        // Right arrow key to navigate to next video
+        goToNextVideo();
+      } else if (e.key === 'ArrowLeft') {
+        // Left arrow key to navigate to previous video
+        goToPrevVideo();
+      }
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [mounted, isFullscreen, isMuted, goToNextVideo, goToPrevVideo, toggleFullscreen]);
 
   // Handle controls visibility
@@ -238,32 +311,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     }
   }, [isPlaying]);
 
-  // Use useMemo to calculate effective videos that won't change on every render
-  const effectiveVideos = useMemo(() => {
-    // Filter out invalid videos (those without a playback ID)
-    const validVideos = videos?.filter(video => {
-      if (!video?.asset) return false;
-      // Check for playbackId in the expected location for Mux videos
-      return !!video.asset.playbackId;
-    }) || [];
-
-    if (validVideos.length > 0) {
-      return validVideos;
-    } else if (coverVideo && coverVideo.playbackId) {
-      // When using coverVideo as fallback, map its properties correctly to match the expected structure
-      return [{
-        asset: {
-          ...coverVideo,
-          // Ensure thumbTime is directly on the asset object where our getPosterUrl function checks for it
-          thumbTime: coverVideo.thumbTime
-        },
-        caption: name
-      }];
-    } else {
-      return [];
-    }
-  }, [videos, coverVideo, name]);
-  
   // Update aspect ratio when current video changes
   useEffect(() => {
     if (mounted && effectiveVideos.length > 0 && currentVideoIndex < effectiveVideos.length) {
@@ -278,26 +325,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       setIsVerticalVideo(height > width);
     }
   }, [mounted, currentVideoIndex, effectiveVideos]);
-  
-  const goToNextVideo = () => {
-    if (effectiveVideos && effectiveVideos.length > 0) {
-      setCurrentVideoIndex((prev) => 
-        prev === effectiveVideos.length - 1 ? 0 : prev + 1
-      );
-      setIsPlaying(false);
-      setProgress(0);
-    }
-  };
-  
-  const goToPrevVideo = () => {
-    if (effectiveVideos && effectiveVideos.length > 0) {
-      setCurrentVideoIndex((prev) => 
-        prev === 0 ? effectiveVideos.length - 1 : prev - 1
-      );
-      setIsPlaying(false);
-      setProgress(0);
-    }
-  };
   
   const togglePlay = () => {
     if (playerRef.current) {
@@ -319,45 +346,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     if (playerRef.current) {
       playerRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (containerRef.current) {
-      // For iOS Safari: need to access the video element directly
-      if (playerRef.current) {
-        const videoElement = playerRef.current.querySelector('video');
-        
-        if (videoElement) {
-          // iOS Safari
-          if (!isFullscreen && videoElement.webkitEnterFullscreen) {
-            videoElement.webkitEnterFullscreen();
-            return;
-          } else if (isFullscreen && videoElement.webkitExitFullscreen) {
-            videoElement.webkitExitFullscreen();
-            return;
-          }
-        }
-      }
-      
-      // Standard fullscreen API for other browsers
-      if (!isFullscreen) {
-        if (containerRef.current.requestFullscreen) {
-          containerRef.current.requestFullscreen();
-        } else if (containerRef.current.webkitRequestFullscreen) {
-          containerRef.current.webkitRequestFullscreen();
-        } else if (containerRef.current.msRequestFullscreen) {
-          containerRef.current.msRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
-        }
-      }
     }
   };
 
@@ -413,8 +401,8 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.playback_ids[0].time}`;
     }
     
-    // Return undefined to let MuxPlayer use the default thumbnail
-    return undefined;
+    // Use first frame (time=0) as backup when no specific thumbnail time exists
+    return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=0`;
   };
   
   const posterUrl = getPosterUrl(currentVideo);
