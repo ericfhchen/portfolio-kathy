@@ -16,15 +16,46 @@ export default function VideoGallery({ videos, name, coverVideo }) {
   const [showControls, setShowControls] = useState(true);
   const [videoAspectRatio, setVideoAspectRatio] = useState('16/9');
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  const [fullscreenButtonRef, setFullscreenButtonRef] = useState(null);
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
-  const [fullscreenButtonRef, setFullscreenButtonRef] = useState(null);
   
   // Only run client-side code after mounting
   useEffect(() => {
     setMounted(true);
   }, [videos, coverVideo]);
+
+  // Create a hidden button to trigger native iOS fullscreen
+  useEffect(() => {
+    // Only run on iOS devices after mounting
+    if (mounted && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+      // Create element only once
+      if (!fullscreenButtonRef) {
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.style.position = 'absolute';
+        fullscreenButton.style.opacity = '0';
+        fullscreenButton.style.pointerEvents = 'none';
+        fullscreenButton.style.width = '1px';
+        fullscreenButton.style.height = '1px';
+        fullscreenButton.style.overflow = 'hidden';
+        fullscreenButton.style.clip = 'rect(0 0 0 0)';
+        fullscreenButton.setAttribute('aria-hidden', 'true');
+        fullscreenButton.classList.add('mux-player-fullscreen-button');
+        
+        // Append to document
+        document.body.appendChild(fullscreenButton);
+        setFullscreenButtonRef(fullscreenButton);
+      }
+    }
+    
+    return () => {
+      // Clean up on unmount
+      if (fullscreenButtonRef) {
+        fullscreenButtonRef.remove();
+      }
+    };
+  }, [mounted, fullscreenButtonRef]);
 
   // Measure player width when video loads or changes
   useEffect(() => {
@@ -222,15 +253,15 @@ export default function VideoGallery({ videos, name, coverVideo }) {
     }
   }, [isPlaying]);
 
+  // Filter out invalid videos (those without a playback ID)
+  const validVideos = videos?.filter(video => {
+    if (!video?.asset) return false;
+    // Check for playbackId in the expected location for Mux videos
+    return !!video.asset.playbackId;
+  }) || [];
+  
   // Use useMemo to calculate effective videos that won't change on every render
   const effectiveVideos = useMemo(() => {
-    // Filter out invalid videos (those without a playback ID)
-    const validVideos = videos?.filter(video => {
-      if (!video?.asset) return false;
-      // Check for playbackId in the expected location for Mux videos
-      return !!video.asset.playbackId;
-    }) || [];
-
     if (validVideos.length > 0) {
       return validVideos;
     } else if (coverVideo && coverVideo.playbackId) {
@@ -454,36 +485,6 @@ export default function VideoGallery({ videos, name, coverVideo }) {
       </div>
     );
   }
-  
-  useEffect(() => {
-    // Create a hidden button to trigger native iOS fullscreen
-    if (mounted && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-      // Create element only once
-      if (!fullscreenButtonRef) {
-        const fullscreenButton = document.createElement('button');
-        fullscreenButton.style.position = 'absolute';
-        fullscreenButton.style.opacity = '0';
-        fullscreenButton.style.pointerEvents = 'none';
-        fullscreenButton.style.width = '1px';
-        fullscreenButton.style.height = '1px';
-        fullscreenButton.style.overflow = 'hidden';
-        fullscreenButton.style.clip = 'rect(0 0 0 0)';
-        fullscreenButton.setAttribute('aria-hidden', 'true');
-        fullscreenButton.classList.add('mux-player-fullscreen-button');
-        
-        // Append to document
-        document.body.appendChild(fullscreenButton);
-        setFullscreenButtonRef(fullscreenButton);
-      }
-    }
-    
-    return () => {
-      // Clean up on unmount
-      if (fullscreenButtonRef) {
-        fullscreenButtonRef.remove();
-      }
-    };
-  }, [mounted]);
   
   return (
     <div className="video-gallery">
