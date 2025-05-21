@@ -125,13 +125,13 @@ export default function NavOverlay() {
           {/* Left side - Kathy Nguyen */}
           <div className="fixed top-0 left-0 p-2.5 pt-0">
             <div className="text-left pr-2 pt-2 pb-2">
-              <Link href="/">Kathy Nguyen</Link>
+              <Link href="/" className="hover:opacity-60">Kathy Nguyen</Link>
             </div>
           </div>
           
           {/* Right side - CLOSE */}
           <div className="fixed top-0 right-0 p-2.5 pt-0">
-            <div className="text-right pl-2 pt-2 pb-2 cursor-pointer" onClick={handleClose}>
+            <div className="text-right pl-2 pt-2 pb-2 cursor-pointer hover:opacity-60" onClick={handleClose}>
               (CLOSE)
             </div>
           </div>
@@ -178,10 +178,10 @@ export default function NavOverlay() {
               {siteInfo.contactText}
             </div>
             <div>
-              <Link href={`mailto:${siteInfo.email}`}>{siteInfo.email}</Link>
+              <Link href={`mailto:${siteInfo.email}`} className="hover:opacity-60">{siteInfo.email}</Link>
             </div>
             <div className='mt-2'>
-              <Link href={siteInfo.instagramLink} target="_blank" rel="noopener noreferrer">
+              <Link href={siteInfo.instagramLink} target="_blank" rel="noopener noreferrer" className="hover:opacity-60">
                 {siteInfo.instagramText}
               </Link>
             </div>
@@ -202,7 +202,7 @@ export default function NavOverlay() {
             {/* Bio section */}
             <div className="flex flex-col w-1/3 mr-20">
               <div className="text-left pt-2">
-                <Link href="/">Kathy Nguyen</Link>
+                <Link href="/" className="hover:opacity-60">Kathy Nguyen</Link>
               </div>
             </div>
 
@@ -218,7 +218,7 @@ export default function NavOverlay() {
           </div>
 
           {/* Close button */}
-          <div className="text-right pt-2 pb-2 cursor-pointer" onClick={handleClose}>
+          <div className="text-right pt-2 pb-2 cursor-pointer hover:opacity-60" onClick={handleClose}>
             (CLOSE)
           </div>
         </div>
@@ -258,10 +258,10 @@ export default function NavOverlay() {
                 {siteInfo.contactText}
               </div>
               <div>
-                <Link href={`mailto:${siteInfo.email}`}>{siteInfo.email}</Link>
+                <Link href={`mailto:${siteInfo.email}`} className="hover:opacity-60">{siteInfo.email}</Link>
               </div>
               <div className="mt-2">
-                <Link href={siteInfo.instagramLink} target="_blank" rel="noopener noreferrer">
+                <Link href={siteInfo.instagramLink} target="_blank" rel="noopener noreferrer" className="hover:opacity-60">
                   {siteInfo.instagramText}
                 </Link>
               </div>
