@@ -743,13 +743,13 @@ export default function VideoGallery({ videos }) {
         </div>
       )}
       
-      {/* Navigation buttons - now showing on all devices including iOS */}
+      {/* Navigation buttons - always visible */}
       {effectiveVideos.length > 1 && mounted && (
         <div 
           className="fixed bottom-0 left-0 right-0 mb-2.5 flex justify-center gap-8 transition-opacity duration-300 ease-in-out"
           style={{
-            opacity: isIOS ? 1 : (showControls ? 1 : 0),
-            pointerEvents: isIOS ? 'auto' : (showControls ? 'auto' : 'none')
+            opacity: 1,
+            pointerEvents: 'auto'
           }}
         >
           <button 
