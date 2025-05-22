@@ -3,6 +3,7 @@
 import { createContext, useState, useEffect, useContext, useRef } from 'react'
 import { client } from '../sanity/lib/client'
 import { groq } from 'next-sanity'
+import { usePathname } from 'next/navigation'
 
 // Create context
 export const GalleryContext = createContext(null)
@@ -19,6 +20,13 @@ export function GalleryProvider({ children }) {
   const [hoveredProject, setHoveredProject] = useState(null)
   const topGalleryRef = useRef(null);
   const bottomGalleryRef = useRef(null);
+  const pathname = usePathname();
+
+  // Reset hover state when navigating back to home page
+  useEffect(() => {
+    // When pathname changes, reset the hover state
+    setHoveredProject(null);
+  }, [pathname]);
 
   // Register refs for galleries to enable global wheel event handling
   const registerTopGallery = (ref) => {
