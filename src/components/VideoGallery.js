@@ -247,7 +247,7 @@ export default function VideoGallery({ videos }) {
 
       return () => clearTimeout(timer);
     }
-  }, [mounted, effectiveVideos, isIOS]);
+  }, [mounted, effectiveVideos, isIOS, currentVideoIndex]);
 
   // Measure player width when video loads or changes
   useEffect(() => {

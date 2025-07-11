@@ -1,26 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 
 export default function ImageGallery({ images, name }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  const goToNextImage = () => {
+  const goToNextImage = useCallback(() => {
     if (images && images.length > 0) {
       setCurrentImageIndex((prev) => 
         prev === images.length - 1 ? 0 : prev + 1
       );
     }
-  };
+  }, [images]);
   
-  const goToPrevImage = () => {
+  const goToPrevImage = useCallback(() => {
     if (images && images.length > 0) {
       setCurrentImageIndex((prev) => 
         prev === 0 ? images.length - 1 : prev - 1
       );
     }
-  };
+  }, [images]);
   
   // Add keyboard navigation
   useEffect(() => {

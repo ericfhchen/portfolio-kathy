@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useGalleryContext } from './GalleryContext'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import Mux from '@mux/mux-player-react'
 import Image from 'next/image'
 
@@ -103,7 +103,7 @@ export default function BottomGallery() {
   };
   
   // Fix 3: Improve the thumb time reset
-  const resetVideoToThumbnail = (projectId) => {
+  const resetVideoToThumbnail = useCallback((projectId) => {
     const videoEl = getVideoElement(projectId);
     if (!videoEl) return;
     
@@ -131,10 +131,10 @@ export default function BottomGallery() {
     } catch (e) {
       console.log("Error in resetVideoToThumbnail:", e);
     }
-  };
+  }, [projects.videoProjects]);
   
   // Update setupActiveVideo for better mobile performance
-  const setupActiveVideo = (videoEl, videoElement, project) => {
+  const setupActiveVideo = useCallback((videoEl, videoElement, project) => {
     if (!videoEl || !project) return;
     
     // Get hover preview settings
@@ -179,8 +179,8 @@ export default function BottomGallery() {
         console.log("Error adding timeupdate handler:", e);
       }
     }
-  };
-  
+  }, [getHoverPreviewSettings]);
+
   // Handle playing videos on hover or touch - optimized version
   // Only run video logic on desktop, not mobile
   useEffect(() => {
@@ -256,10 +256,13 @@ export default function BottomGallery() {
     
     // Cleanup function
     return () => {
+      // Store current videoRefs to avoid stale closure
+      const currentVideoRefs = videoRefs.current;
+      
       // Remove all event handlers when component unmounts or dependencies change
       Object.entries(handlerRefs.current).forEach(([projectId, handler]) => {
         try {
-          const videoElement = videoRefs.current[projectId];
+          const videoElement = currentVideoRefs[projectId];
           if (videoElement) {
             const videoEl = videoElement.shadowRoot?.querySelector('video') || videoElement;
             videoEl.removeEventListener('timeupdate', handler);
@@ -272,7 +275,7 @@ export default function BottomGallery() {
       // Clear the handlers object
       handlerRefs.current = {};
     };
-  }, [hoveredProject, touchedProject, projects.videoProjects, isMobile]);
+  }, [hoveredProject, touchedProject, projects.videoProjects, isMobile, setupActiveVideo]);
 
   // Modify handleTouchStart to preload the video - only on desktop
   const handleTouchStart = (project, e) => {
@@ -388,7 +391,6 @@ export default function BottomGallery() {
             // Get the playback ID from the processed data structure
             const playbackId = project.video?.asset?.playbackId;
             const hasValidVideo = !!playbackId;
-            const thumbTime = getThumbTime(project);
 
             return (
             <Link 
