@@ -18,7 +18,6 @@ export default function VideoGallery({ videos }) {
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [lastCurrentTime, setLastCurrentTime] = useState(0); // Track previous currentTime to ensure video is progressing
-  const [isSafari, setIsSafari] = useState(false); // Track if browser is Safari
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
@@ -31,10 +30,6 @@ export default function VideoGallery({ videos }) {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
-    
-    // Check if browser is Safari (including iOS Safari)
-    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    setIsSafari(isSafariBrowser);
   }, [videos]);
 
   // Use useMemo to calculate effective videos that won't change on every render

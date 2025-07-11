@@ -158,8 +158,9 @@ export default function BottomGallery() {
     
     return () => {
       clearTimeout(preloadTimeout);
-      // Cleanup loop handlers
-      Object.entries(handlerRefs.current).forEach(([key, handler]) => {
+      // Cleanup loop handlers - capture current ref value to avoid stale reference
+      const currentHandlers = handlerRefs.current;
+      Object.entries(currentHandlers).forEach(([key, handler]) => {
         if (key.startsWith('loop-')) {
           const projectId = key.replace('loop-', '');
           const videoEl = getVideoElement(projectId);

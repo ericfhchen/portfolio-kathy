@@ -7,7 +7,6 @@ export default function ImageGallery({ images, name }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeImageSlot, setActiveImageSlot] = useState(0); // 0 or 1 for alternating images
   const [imageSlots, setImageSlots] = useState([0, 0]); // Track which image is in each slot
-  const [isLoading, setIsLoading] = useState(false);
   
   // Initialize image slots
   useEffect(() => {
@@ -28,7 +27,6 @@ export default function ImageGallery({ images, name }) {
         newSlots[newActiveSlot] = nextIndex;
         return newSlots;
       });
-      setIsLoading(true);
     }
   }, [images, currentImageIndex, activeImageSlot]);
   
@@ -44,7 +42,6 @@ export default function ImageGallery({ images, name }) {
         newSlots[newActiveSlot] = prevIndex;
         return newSlots;
       });
-      setIsLoading(true);
     }
   }, [images, currentImageIndex, activeImageSlot]);
   
@@ -82,7 +79,6 @@ export default function ImageGallery({ images, name }) {
     // When the non-active slot finishes loading, switch to it
     if (slotIndex !== activeImageSlot) {
       setActiveImageSlot(slotIndex);
-      setIsLoading(false);
     }
   };
 
@@ -114,7 +110,6 @@ export default function ImageGallery({ images, name }) {
             }}
             aria-label="Next image"
           />
-          
           
           {/* Image Slot 0 */}
           <Image
