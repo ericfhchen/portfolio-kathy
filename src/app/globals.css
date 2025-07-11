@@ -110,3 +110,17 @@ html, body {
 }
 
 /* Already added Firefox and IE/Edge support via inline styles */
+
+/* Video Controls - Defensive CSS for Button Overlap Prevention */
+.controls-container button {
+  font-feature-settings: 'kern' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: max-content;
+  white-space: nowrap;
+  flex-shrink: 0; /* Prevent buttons from shrinking */
+}

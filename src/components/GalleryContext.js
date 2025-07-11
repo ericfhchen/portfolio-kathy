@@ -129,7 +129,6 @@ export function GalleryProvider({ children }) {
             "slug": slug.current,
             "thumbnailImage": thumbnailImage.asset->url,
             projectTagline,
-            thumbTime,
             client->{
               title
             },
@@ -138,7 +137,6 @@ export function GalleryProvider({ children }) {
               "asset": asset->,
               "playbackId": asset.playbackId,
               "assetRef": asset._ref,
-              "thumbTime": asset->thumbTime,
               "caption": caption
             },
             // Get the dedicated cover video
@@ -146,12 +144,11 @@ export function GalleryProvider({ children }) {
           }
         `)
         
-        // Get all Mux assets for reference
+        // Get all Mux assets for reference (no thumbTime needed for thumbnails)
         const muxAssets = await client.fetch(groq`
           *[_type == "mux.videoAsset"] {
             _id,
-            playbackId,
-            thumbTime
+            playbackId
           }
         `)
         
@@ -166,12 +163,11 @@ export function GalleryProvider({ children }) {
             if (muxAsset?.playbackId) {
               return {
                 ...project,
-                thumbTime: project.thumbTime || project.coverVideo.thumbTime,
                 video: {
                   asset: {
                     _type: "mux.videoAsset",
-                    playbackId: muxAsset.playbackId,
-                    thumbTime: muxAsset.thumbTime || project.coverVideo.thumbTime
+                    playbackId: muxAsset.playbackId
+                    // Removed thumbTime - let thumbnails use default
                   },
                   hoverPreview: project.coverVideo.hoverPreview || {}
                 },

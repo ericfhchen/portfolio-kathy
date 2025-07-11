@@ -6,7 +6,7 @@ import CreditsOverlay from '../../../components/CreditsOverlay'
 import Link from 'next/link'
 
 export async function generateMetadata({ params }) {
-  const { slug } = params
+  const { slug } = await params
   
   // Try to find either an image or video project with this slug
   const project = await client.fetch(
@@ -62,7 +62,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function ProjectPage({ params }) {
-  const { slug } = params
+  const { slug } = await params
   
   try {
     // First, determine if this is an image or video project
@@ -146,7 +146,7 @@ export default async function ProjectPage({ params }) {
         <div className="relative md:h-screen h-auto">
           
           {/* Header with client and tagline */}
-          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-8">
+          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-10">
             {project.client && (
               <div className="leading-[1.1] mb-[0.5] text-center">
                 {project.client.link ? (
@@ -200,8 +200,7 @@ export default async function ProjectPage({ params }) {
             "asset": {
               "playbackId": asset.asset->playbackId,
               "_id": asset.asset->_id,
-              "data": asset.asset->data,
-              "thumbTime": asset.asset->thumbTime
+              "data": asset.asset->data
             },
             caption
           },
@@ -255,7 +254,7 @@ export default async function ProjectPage({ params }) {
           
           
           {/* Header with client and tagline */}
-          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-8">
+          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-10">
             {project.client && (
               <div className="text-center">
                 {project.client.link ? (

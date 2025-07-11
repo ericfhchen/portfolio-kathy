@@ -17,6 +17,8 @@ export default function VideoGallery({ videos }) {
   const [videoAspectRatio, setVideoAspectRatio] = useState('16/9');
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [lastCurrentTime, setLastCurrentTime] = useState(0); // Track previous currentTime to ensure video is progressing
+  const [isSafari, setIsSafari] = useState(false); // Track if browser is Safari
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
@@ -29,6 +31,10 @@ export default function VideoGallery({ videos }) {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
+    
+    // Check if browser is Safari (including iOS Safari)
+    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    setIsSafari(isSafariBrowser);
   }, [videos]);
 
   // Use useMemo to calculate effective videos that won't change on every render
@@ -53,6 +59,7 @@ export default function VideoGallery({ videos }) {
     );
     setIsPlaying(false);
     setProgress(0);
+    setLastCurrentTime(0); // Reset progress tracking timer
     
     // Reset player if it exists
     if (playerRef.current) {
@@ -80,6 +87,7 @@ export default function VideoGallery({ videos }) {
     );
     setIsPlaying(false);
     setProgress(0);
+    setLastCurrentTime(0); // Reset progress tracking timer
     
     // Reset player if it exists
     if (playerRef.current) {
@@ -143,6 +151,7 @@ export default function VideoGallery({ videos }) {
     if (mounted && playerRef.current) {
       setIsPlaying(false);
       setProgress(0);
+      setLastCurrentTime(0); // Reset progress tracking timer
       
       try {
         // For iOS native video element
@@ -270,23 +279,29 @@ export default function VideoGallery({ videos }) {
     }
   }, [currentVideoIndex, mounted]);
 
-  // Update progress
+  // Update progress - immediate updates with Safari protection
   useEffect(() => {
     if (playerRef.current && isPlaying) {
       const updateProgress = () => {
         const currentTime = playerRef.current.currentTime;
         const duration = playerRef.current.duration;
         
-        // Only update progress if we have valid duration and currentTime
-        if (duration && !isNaN(duration) && duration > 0 && !isNaN(currentTime)) {
-          setProgress((currentTime / duration) * 100);
+        // Simple validation: only update if we have reasonable duration and currentTime
+        if (duration && !isNaN(duration) && duration > 0 && !isNaN(currentTime) && currentTime >= 0) {
+          if (duration < 86400) { // Reasonable video duration
+            // Only update if currentTime is progressing or at the beginning
+            if (currentTime >= lastCurrentTime || currentTime < 0.5) {
+              setProgress((currentTime / duration) * 100);
+              setLastCurrentTime(currentTime);
+            }
+          }
         }
       };
 
       const interval = setInterval(updateProgress, 100);
       return () => clearInterval(interval);
     }
-  }, [isPlaying]);
+  }, [isPlaying, lastCurrentTime]);
 
   // Add a useEffect to measure the player position
   useEffect(() => {
@@ -517,32 +532,8 @@ export default function VideoGallery({ videos }) {
   const getPosterUrl = (video) => {
     if (!video?.asset?.playbackId) return undefined;
     
-    // First check direct poster property
-    if (video?.asset?.poster) return video.asset.poster;
-    
-    // Check thumbTime at the asset root level
-    if (video?.asset?.thumbTime !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.thumbTime}&width=960`;
-    }
-    
-    // Check thumbTime in data object
-    if (video?.asset?.data?.thumbTime !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbTime}&width=960`;
-    }
-    
-    // Check for thumbnail_time in data (another possible format)
-    if (video?.asset?.data?.thumbnail_time !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.thumbnail_time}&width=960`;
-    }
-    
-    // Additional check for Sanity MUX custom thumbnail time location
-    // Sometimes Sanity stores it nested under data.playback_ids
-    if (video?.asset?.data?.playback_ids?.[0]?.time !== undefined) {
-      return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=${video.asset.data.playback_ids[0].time}&width=960`;
-    }
-    
-    // Use first frame (time=0) as backup when no specific thumbnail time exists
-    // Include width parameter for high quality
+    // Always use time 0 for thumbnails to prevent preview stuttering
+    // This ensures the thumbnail matches the actual video start frame
     return `https://image.mux.com/${video.asset.playbackId}/thumbnail.jpg?time=0&width=960`;
   };
   
@@ -646,6 +637,8 @@ export default function VideoGallery({ videos }) {
                       defaultHiddenCaptions
                       defaultPosterTime={0}
                       thumbnailTime={0}
+                      startTime={0}
+                      currentTime={0}
                       metadata={{
                         video_title: currentVideo?.caption || "",
                         player_name: "Portfolio Gallery"
@@ -711,36 +704,40 @@ export default function VideoGallery({ videos }) {
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        width: '100%',
-                        background: isFullscreen ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+                        display: 'grid',
+                        gridTemplateColumns: 'auto auto 1fr auto',
+                        gap: '0.5rem',
+                        alignItems: 'center',
+                        padding: isFullscreen ? '10px' : '12px',
+                        background: 'transparent',
                         borderRadius: isFullscreen ? '5px' : '0',
-                        padding: isFullscreen ? '10px' : undefined,
                         opacity: showControls ? 1 : 0,
                         pointerEvents: showControls ? 'auto' : 'none'
                       }}
                     >
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePlay();
-                          }}
-                          className="text-white hover:opacity-60 transition-opacity w-10 text-center tracking-wide"
-                        >
-                          {isPlaying ? 'PAUSE' : 'PLAY'}
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleMute();
-                          }}
-                          className="text-white hover:opacity-60 w-10 text-center transition-opacity tracking-wide"
-                        >
-                          {isMuted ? 'UNMUTE' : 'MUTE'}
-                        </button>
-                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePlay();
+                        }}
+                        className="text-white hover:opacity-60 transition-opacity text-center tracking-wide whitespace-nowrap"
+                        style={{ minWidth: '40px' }}
+                      >
+                        {isPlaying ? 'PAUSE' : 'PLAY'}
+                      </button>
+                      
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMute();
+                        }}
+                        className="text-white hover:opacity-60 text-center transition-opacity tracking-wide whitespace-nowrap"
+                        style={{ minWidth: '40px' }}
+                      >
+                        {isMuted ? 'UNMUTE' : 'MUTE'}
+                      </button>
+                      
                       <div 
-                        className="flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleProgressClick(e);
@@ -751,7 +748,8 @@ export default function VideoGallery({ videos }) {
                           padding: '4px 0',
                           width: '100%',
                           display: 'flex',
-                          alignItems: 'center'
+                          alignItems: 'center',
+                          cursor: 'pointer'
                         }}
                       >
                         <div 
@@ -772,12 +770,13 @@ export default function VideoGallery({ videos }) {
                           />
                         </div>
                       </div>
+                      
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleFullscreen();
                         }}
-                        className="text-white hover:opacity-60 transition-opacity tracking-wide"
+                        className="text-white hover:opacity-60 transition-opacity tracking-wide whitespace-nowrap"
                       >
                         {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
                       </button>
