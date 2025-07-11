@@ -60,9 +60,9 @@ export default function TopGallery() {
           ))}
         </div>
       </div>
-      {/* <div className="mt-2 text-left">
+      <div className="mt-2 text-left md:hidden">
         Stills
-      </div> */}
+      </div>
     </div>
   )
 } 

@@ -8,7 +8,7 @@ export default function VideoGallery({ videos }) {
   const [mounted, setMounted] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Changed to true for muted by default
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerWidth, setPlayerWidth] = useState(0);
   const [playerHeight, setPlayerHeight] = useState(0);
@@ -138,7 +138,7 @@ export default function VideoGallery({ videos }) {
     }
   }, [isFullscreen]);
 
-  // Reset player when video changes
+  // Reset player when video changes and autoplay with muted sound
   useEffect(() => {
     if (mounted && playerRef.current) {
       setIsPlaying(false);
@@ -155,10 +155,34 @@ export default function VideoGallery({ videos }) {
           if (posterUrl) {
             playerRef.current.poster = posterUrl;
           }
+          
+          // Autoplay muted for iOS
+          playerRef.current.muted = true;
+          setIsMuted(true);
+          
+          // Use requestAnimationFrame to ensure the video is ready
+          requestAnimationFrame(() => {
+            playerRef.current.play().catch(e => {
+              console.log("Error autoplaying iOS video:", e);
+            });
+            // Don't set isPlaying here - let the onPlay event handle it
+          });
         } 
         // For MuxPlayer
         else if (playerRef.current.pause) {
           playerRef.current.pause();
+          
+          // Autoplay muted for MuxPlayer
+          playerRef.current.muted = true;
+          setIsMuted(true);
+          
+          // Use requestAnimationFrame to ensure the player is ready
+          requestAnimationFrame(() => {
+            playerRef.current.play().catch(e => {
+              console.log("Error autoplaying MuxPlayer video:", e);
+            });
+            // Don't set isPlaying here - let the onPlay event handle it
+          });
         }
       } catch (e) {
         console.log("Error resetting player on video change:", e);
@@ -195,6 +219,36 @@ export default function VideoGallery({ videos }) {
     }
   }, [mounted, effectiveVideos, currentVideoIndex, isIOS]);
 
+  // Autoplay first video when component mounts
+  useEffect(() => {
+    if (mounted && effectiveVideos.length > 0 && playerRef.current && currentVideoIndex === 0) {
+      // Small delay to ensure video element is fully initialized
+      const timer = setTimeout(() => {
+        try {
+          if (isIOS) {
+            playerRef.current.muted = true;
+            setIsMuted(true);
+            playerRef.current.play().catch(e => {
+              console.log("Error autoplaying first iOS video:", e);
+            });
+            // Don't set isPlaying here - let the onPlay event handle it
+          } else if (playerRef.current) {
+            playerRef.current.muted = true;
+            setIsMuted(true);
+            playerRef.current.play().catch(e => {
+              console.log("Error autoplaying first MuxPlayer video:", e);
+            });
+            // Don't set isPlaying here - let the onPlay event handle it
+          }
+        } catch (e) {
+          console.log("Error in first video autoplay:", e);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [mounted, effectiveVideos, isIOS]);
+
   // Measure player width when video loads or changes
   useEffect(() => {
     if (playerRef.current) {
@@ -222,7 +276,11 @@ export default function VideoGallery({ videos }) {
       const updateProgress = () => {
         const currentTime = playerRef.current.currentTime;
         const duration = playerRef.current.duration;
-        setProgress((currentTime / duration) * 100);
+        
+        // Only update progress if we have valid duration and currentTime
+        if (duration && !isNaN(duration) && duration > 0 && !isNaN(currentTime)) {
+          setProgress((currentTime / duration) * 100);
+        }
       };
 
       const interval = setInterval(updateProgress, 100);
@@ -552,6 +610,8 @@ export default function VideoGallery({ videos }) {
                       poster={posterUrl}
                       playsInline
                       controls
+                      autoPlay
+                      muted
                       style={{
                         position: 'absolute',
                         top: '0',
@@ -578,8 +638,8 @@ export default function VideoGallery({ videos }) {
                       accentColor='#000'
                       primaryColor='#ffffff'
                       secondaryColor='#000000'
-                      autoPlay={false}
-                      muted={false}
+                      autoPlay={true}
+                      muted={true}
                       loop={false}
                       poster={posterUrl}
                       preload="auto"

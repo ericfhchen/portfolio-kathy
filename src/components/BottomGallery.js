@@ -12,6 +12,8 @@ export default function BottomGallery() {
   const galleryRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [touchedProject, setTouchedProject] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [hoveredVideoProject, setHoveredVideoProject] = useState(null);
   const timeoutRef = useRef(null);
   const handlerRefs = useRef({});
   
@@ -21,6 +23,20 @@ export default function BottomGallery() {
       registerBottomGallery(galleryRef.current);
     }
   }, [registerBottomGallery]);
+  
+  // Mobile detection - similar to CreditsOverlay component
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    // Set initial state
+    checkMobile()
+    
+    // Update on resize
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   // Helper to convert time string (MM:SS or MM:SS.mm) to seconds
   const timeToSeconds = (timeStr) => {
@@ -44,6 +60,18 @@ export default function BottomGallery() {
     return Number(timeStr);
   };
 
+  // Get hover preview settings from a project
+  const getHoverPreviewSettings = (project) => {
+    const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
+    const startTimeString = hoverPreview.startTime;
+    const endTimeString = hoverPreview.endTime;
+    
+    const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
+    const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
+    
+    return { startTime, endTime };
+  };
+  
   // Get the thumbnail time from project data
   const getThumbTime = (project) => {
     // Check for thumb time in the dedicated cover video first
@@ -63,18 +91,6 @@ export default function BottomGallery() {
     
     // Fallback to 0
     return 0;
-  };
-  
-  // Get hover preview settings from a project
-  const getHoverPreviewSettings = (project) => {
-    const hoverPreview = project.coverVideo?.hoverPreview || project.video?.hoverPreview || {};
-    const startTimeString = hoverPreview.startTime;
-    const endTimeString = hoverPreview.endTime;
-    
-    const startTime = startTimeString ? timeToSeconds(startTimeString) : 0;
-    const endTime = endTimeString ? timeToSeconds(endTimeString) : null;
-    
-    return { startTime, endTime };
   };
   
   // Fix 1: Improve video element access consistency
@@ -166,8 +182,9 @@ export default function BottomGallery() {
   };
   
   // Handle playing videos on hover or touch - optimized version
+  // Only run video logic on desktop, not mobile
   useEffect(() => {
-    if (!projects.videoProjects) return;
+    if (!projects.videoProjects || isMobile) return;
     
     // Use either hoveredProject or touchedProject (for mobile)
     const activeProject = hoveredProject || touchedProject;
@@ -255,10 +272,13 @@ export default function BottomGallery() {
       // Clear the handlers object
       handlerRefs.current = {};
     };
-  }, [hoveredProject, touchedProject, projects.videoProjects]);
+  }, [hoveredProject, touchedProject, projects.videoProjects, isMobile]);
 
-  // Modify handleTouchStart to preload the video
+  // Modify handleTouchStart to preload the video - only on desktop
   const handleTouchStart = (project, e) => {
+    // On mobile, don't handle video interactions
+    if (isMobile) return;
+    
     // Clear any pending timeouts
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -279,6 +299,9 @@ export default function BottomGallery() {
   };
 
   const handleTouchEnd = () => {
+    // On mobile, don't handle video interactions
+    if (isMobile) return;
+    
     // If we have a previously touched project, reset its video
     if (touchedProject && touchedProject._id) {
       const projectId = touchedProject._id;
@@ -320,8 +343,10 @@ export default function BottomGallery() {
     }
   };
 
-  // Add touchcancel handler to clean up if touch is interrupted
+  // Add touchcancel handler to clean up if touch is interrupted - only on desktop
   useEffect(() => {
+    if (isMobile) return;
+    
     const handleTouchCancel = () => {
       // Reset the previously touched project if any
       if (touchedProject && touchedProject._id) {
@@ -338,7 +363,7 @@ export default function BottomGallery() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [touchedProject, resetVideoToThumbnail]);
+  }, [touchedProject, resetVideoToThumbnail, isMobile]);
 
   // No video projects to display
   if (!projects.videoProjects || projects.videoProjects.length === 0) {
@@ -347,6 +372,9 @@ export default function BottomGallery() {
   
   return (
     <div ref={galleryRef} className="bottom-gallery absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 z-[9]">
+      <div className="mb-2 text-left md:hidden">
+        Motion
+      </div>
       <div 
         ref={scrollContainerRef}
         className="w-full overflow-x-auto overflow-y-hidden scrollbar-hide"
@@ -367,15 +395,55 @@ export default function BottomGallery() {
               href={`/project/${project.slug}`}
               key={project._id}
               className="w-[calc(40vw-20px)] h-[calc(40vw-20px)] md:w-[200px] md:h-[200px] flex-shrink-0 relative overflow-hidden"
-              onMouseEnter={() => handleProjectHover(project)}
-              onMouseLeave={handleProjectLeave}
+              onMouseEnter={() => !isMobile && handleProjectHover(project)}
+              onMouseLeave={!isMobile ? handleProjectLeave : undefined}
               onTouchStart={(e) => handleTouchStart(project, e)}
               onTouchEnd={() => handleTouchEnd()}
               onTouchCancel={() => handleTouchEnd()}
             >
               <div className="relative w-full h-full overflow-hidden">
-                  {hasValidVideo ? (
-                  <div className="w-full h-full relative overflow-hidden">
+                {/* Always show thumbnail image as the base */}
+                {project.thumbnailImage && (
+                  <div className={`w-full h-full relative  ${hoveredVideoProject === project._id ? 'opacity-0' : 'opacity-100'}`}>
+                    <Image
+                      src={project.thumbnailImage}
+                      alt={project.name}
+                      width={200}
+                      height={200}
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                )}
+
+                {/* On desktop, show video when hovered if available */}
+                {!isMobile && hasValidVideo && (
+                  <div 
+                    className={`absolute inset-0  ${hoveredVideoProject === project._id ? 'opacity-100' : 'opacity-0'}`}
+                    onMouseEnter={() => {
+                      setHoveredVideoProject(project._id);
+                      // Trigger video playback when hovering over the video overlay
+                      const videoEl = getVideoElement(project._id);
+                      if (videoEl) {
+                        setupActiveVideo(videoEl, videoRefs.current[project._id], project);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredVideoProject(null);
+                      // Reset video when leaving the overlay
+                      const videoEl = getVideoElement(project._id);
+                      if (videoEl) {
+                        videoEl.pause();
+                        // Remove any timeupdate handlers
+                        if (handlerRefs.current[project._id]) {
+                          videoEl.removeEventListener('timeupdate', handlerRefs.current[project._id]);
+                          delete handlerRefs.current[project._id];
+                        }
+                        // Reset to thumbnail time
+                        const thumbTime = getThumbTime(project);
+                        videoEl.currentTime = thumbTime;
+                      }
+                    }}
+                  >
                     <div 
                       className="absolute inset-0 origin-center"
                       style={{
@@ -398,8 +466,6 @@ export default function BottomGallery() {
                         muted={true}
                         loop={false}
                         preload="metadata"
-                        defaultPosterTime={thumbTime}
-                        thumbnailTime={thumbTime}
                         style={{ 
                           height: '100%',
                           width: '100%',
@@ -419,7 +485,7 @@ export default function BottomGallery() {
                           '--container-height': '100%',
                           pointerEvents: 'none',
                           overflow: 'hidden',
-                          willChange: 'transform' // Add will-change to optimize rendering
+                          willChange: 'transform'
                         }}
                         disableCookies={true}
                         playerSoftware="custom:portfolio"
@@ -429,26 +495,17 @@ export default function BottomGallery() {
                         defaultHiddenCaptions
                         noposterplay
                         hidevolumebar
+                        noposter
                       />
                     </div>
                   </div>
-                ) : (
-                    // Fallback to coverImage if no valid video
-                  project.coverImage ? (
-                    <div className="w-full h-full relative">
-                      <Image
-                        src={project.coverImage}
-                        alt={project.name}
-                        width={200}
-                        height={200}
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-xs text-gray-400">
-                      No thumbnail
-                    </div>
-                  )
+                )}
+
+                {/* Fallback if no thumbnail image */}
+                {!project.thumbnailImage && (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100 text-xs text-gray-400">
+                    No thumbnail
+                  </div>
                 )}
               </div>
             </Link>

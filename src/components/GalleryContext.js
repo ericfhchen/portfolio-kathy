@@ -127,7 +127,7 @@ export function GalleryProvider({ children }) {
             _id,
             name,
             "slug": slug.current,
-            "coverImage": coverImage.asset->url,
+            "thumbnailImage": thumbnailImage.asset->url,
             projectTagline,
             thumbTime,
             client->{
@@ -174,6 +174,14 @@ export function GalleryProvider({ children }) {
                     thumbTime: muxAsset.thumbTime || project.coverVideo.thumbTime
                   },
                   hoverPreview: project.coverVideo.hoverPreview || {}
+                },
+                // Keep the original coverVideo data for easy access
+                coverVideo: {
+                  ...project.coverVideo,
+                  asset: {
+                    ...project.coverVideo.asset,
+                    playbackId: muxAsset.playbackId
+                  }
                 }
               };
             }

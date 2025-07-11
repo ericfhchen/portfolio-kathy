@@ -75,6 +75,18 @@ export const videoProjects = defineType({
       of: [{type: 'block'}]
     }),
     
+    // Thumbnail image field - used for main project thumbnail
+    defineField({
+      name: 'thumbnailImage',
+      title: 'Project Thumbnail',
+      type: 'image',
+      description: 'Upload a custom thumbnail image for this project. This will be the main thumbnail displayed.',
+      options: {
+        hotspot: true,
+      },
+      validation: Rule => Rule.required().error('A thumbnail image is required')
+    }),
+    
     // Video Gallery Field - Simplified to just contain videos
     defineField({
       name: 'videoGallery',
@@ -124,19 +136,22 @@ export const videoProjects = defineType({
       }
     }),
     
-    // New dedicated Cover Video field
+    // Cover Video field with timestamp selectors for hover effects
     defineField({
       name: 'coverVideo',
       title: 'Cover Video Settings',
-      description: 'Select which video to use as the cover and configure its preview settings',
+      description: 'Configure video for hover effects and animations. The thumbnail image above will be used as the static thumbnail.',
       type: 'object',
       fields: [
         {
           name: 'asset',
           title: 'Cover Video',
           type: 'mux.video',
-          description: 'Select or upload the video to use as the cover/thumbnail for this project',
-          validation: Rule => Rule.required().error('A cover video is required')
+          description: 'Select or upload the video to use for hover effects',
+          options: {
+            hotspot: true,
+            storeOriginalFilename: true
+          }
         },
         {
           name: 'hoverPreview',
@@ -212,7 +227,7 @@ export const videoProjects = defineType({
         },
         prepare({playbackId}) {
           return {
-            title: 'Cover Video',
+            title: 'Cover Video Settings',
             media: playbackId 
               ? `https://image.mux.com/${playbackId}/thumbnail.jpg` 
               : undefined
@@ -224,17 +239,12 @@ export const videoProjects = defineType({
   preview: {
     select: {
       title: 'name',
-      coverVideo: 'coverVideo'
+      thumbnailImage: 'thumbnailImage'
     },
-    prepare({ title, coverVideo }) {
-      // Use the dedicated cover video field for the preview
-      const playbackId = coverVideo?.asset?.playbackId;
-      
+    prepare({ title, thumbnailImage }) {
       return {
         title,
-        media: playbackId 
-          ? `https://image.mux.com/${playbackId}/thumbnail.jpg` 
-          : undefined
+        media: thumbnailImage
       };
     }
   }
