@@ -146,7 +146,7 @@ export default async function ProjectPage({ params }) {
         <div className="relative md:h-screen h-auto">
           
           {/* Header with client and tagline */}
-          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-10">
+          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 md:z-10">
             {project.client && (
               <div className="leading-[1.1] mb-[0.5] text-center">
                 {project.client.link ? (
@@ -254,7 +254,7 @@ export default async function ProjectPage({ params }) {
           
           
           {/* Header with client and tagline */}
-          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 z-10">
+          <div className="relative md:fixed md:top-2.5 md:left-0 md:right-0 md:z-10">
             {project.client && (
               <div className="text-center">
                 {project.client.link ? (
