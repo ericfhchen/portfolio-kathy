@@ -547,7 +547,11 @@ export default function VideoGallery({ videos }) {
       {/* Videos gallery - one video at a time with navigation */}
       <div className="fixed inset-0 flex items-center justify-center">
         <div 
-          className="w-[100vw] h-[75vh] md:w-[75vw] md:h-[75vh] flex items-center justify-center"
+          className="w-[100vw]
+          h-[75svh]                                   
+          [@supports(height:75dvh)]:h-[75dvh]         
+          [@supports(not(height:75svh))]:h-[75vh]
+          md:w-[75vw] md:h-[75vh] flex items-center justify-center"
         >
           <div 
             ref={containerRef} 
