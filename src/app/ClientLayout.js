@@ -8,7 +8,7 @@ import BottomGallery from '../components/BottomGallery'
 import ProjectInfo from '../components/ProjectInfo'
 import { GalleryProvider } from '../components/GalleryContext'
 
-export default function ClientLayout({ children }) {
+export default function ClientLayout({ children, initialData }) {
   const pathname = usePathname()
   const isStudioPage = pathname?.startsWith('/studio')
   const isHomePage = pathname === '/'
@@ -23,7 +23,7 @@ export default function ClientLayout({ children }) {
       
       {/* Render GalleryProvider and ProjectInfo when not on Sanity Studio pages */}
       {!isStudioPage && (
-        <GalleryProvider>
+        <GalleryProvider initialData={initialData}>
           {/* Only render galleries on the homepage */}
           {isHomePage && (
             <>

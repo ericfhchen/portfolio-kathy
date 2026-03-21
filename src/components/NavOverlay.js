@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { client } from '../sanity/lib/client';
 import { groq } from 'next-sanity';
 import Link from 'next/link';
+import FinalResearchCredit from './FinalResearchCredit';
 
 // Create a simple event system for cross-component communication
 let overlayListeners = [];
@@ -32,36 +33,29 @@ export default function NavOverlay() {
     instagramLink: 'https://www.instagram.com/recognizekat',
     instagramText: 'Instagram',
   });
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Fetch data on component mount
+  // Fetch data immediately on mount so it's ready before overlay opens
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
       try {
-        // Fetch all clients
-        const allClientsQuery = groq`*[_type == "clients"] | order(orderRank) { 
-          _id, 
-          title, 
-          link, 
-          showInSelectedClients 
-        }`;
-        const allClientsData = await client.fetch(allClientsQuery);
-        
-        // Filter clients to only show those with showInSelectedClients === true
+        const [allClientsData, siteInfoData] = await Promise.all([
+          client.fetch(groq`*[_type == "clients"] | order(orderRank) {
+            _id,
+            title,
+            link,
+            showInSelectedClients
+          }`),
+          client.fetch(groq`*[_type == "siteInfo"][0]{
+            bio,
+            contactText,
+            email,
+            instagramLink,
+            instagramText
+          }`)
+        ]);
+
         const filtered = allClientsData.filter(c => c.showInSelectedClients === true);
         setVisibleClients(filtered);
-        
-        // Fetch site information
-        const siteInfoQuery = groq`*[_type == "siteInfo"][0]{
-          bio,
-          contactText,
-          email,
-          instagramLink,
-          instagramText
-        }`;
-        
-        const siteInfoData = await client.fetch(siteInfoQuery);
+
         if (siteInfoData) {
           setSiteInfo(prev => ({
             ...prev,
@@ -69,10 +63,7 @@ export default function NavOverlay() {
           }));
         }
       } catch {
-        // Error fetching data
         // Keep using default values if there's an error
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -151,12 +142,7 @@ export default function NavOverlay() {
           <div className="w-full">
             <div className="font-bold mb-2">Selected Clients</div>
             <div className="flex flex-col gap-0">
-              {isLoading ? (
-                <div>Loading clients...</div>
-              ) : visibleClients.length === 0 ? (
-                <div>No clients to display</div>
-              ) : (
-                visibleClients.map(client => (
+              {visibleClients.map(client => (
                   <div key={client._id}>
                     {client.link ? (
                       <Link href={client.link} target="_blank" rel="noopener noreferrer">
@@ -166,8 +152,7 @@ export default function NavOverlay() {
                       <span>{client.title}</span>
                     )}
                   </div>
-                ))
-              )}
+                ))}
             </div>
           </div>
 
@@ -191,7 +176,7 @@ export default function NavOverlay() {
           <div className="w-full fixed bottom-0 left-0 right-0 px-2.5 pb-2.5">
             <div className="flex justify-between w-full">
               <div>©{new Date().getFullYear()} Kathy Nguyen</div>
-              <div>Website by <Link href="https://www.left.systems" target="_blank" rel="noopener noreferrer">LEFT</Link></div>
+              <FinalResearchCredit />
             </div>
           </div>
         </div>
@@ -233,12 +218,7 @@ export default function NavOverlay() {
 
             {/* Clients */}
             <div className="flex flex-col w-1/6">
-              {isLoading ? (
-                <div>Loading clients...</div>
-              ) : visibleClients.length === 0 ? (
-                <div>No clients to display</div>
-              ) : (
-                visibleClients.map(client => (
+              {visibleClients.map(client => (
                   <div key={client._id}>
                     {client.link ? (
                       <Link href={client.link} target="_blank" rel="noopener noreferrer">
@@ -248,8 +228,7 @@ export default function NavOverlay() {
                       <span>{client.title}</span>
                     )}
                   </div>
-                ))
-              )}
+                ))}
             </div>
 
             {/* Contact */}
@@ -277,7 +256,7 @@ export default function NavOverlay() {
               ©{new Date().getFullYear()} Kathy Nguyen
             </div>
             <div className="flex flex-col w-1/2">
-              <span>Website by <Link href="https://www.left.systems" target="_blank" rel="noopener noreferrer">LEFT</Link></span>
+              <FinalResearchCredit />
             </div>
           </div>
         </div>
