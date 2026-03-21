@@ -11,6 +11,7 @@ export default function TopGallery() {
   const galleryRef = useRef(null)
   const itemRefs = useRef({})
   const [visibleIds, setVisibleIds] = useState(new Set())
+  const [loadedIds, setLoadedIds] = useState(new Set())
 
   // Register this gallery's scroll container with the context
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function TopGallery() {
       },
       {
         root: scrollContainerRef.current,
-        rootMargin: '0px 600px 0px 600px',
+        rootMargin: '0px 300px 0px 300px',
         threshold: 0,
       }
     );
@@ -78,7 +79,14 @@ export default function TopGallery() {
                 onMouseEnter={() => handleProjectHover(project)}
                 onMouseLeave={handleProjectLeave}
               >
-                <div className="relative w-full h-full">
+                <div
+                  className="relative w-full h-full"
+                  style={project.coverImageBlur && !loadedIds.has(project._id) ? {
+                    backgroundImage: `url(${project.coverImageBlur})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  } : undefined}
+                >
                   {project.coverImage && isVisible ? (
                     <Image
                       src={project.coverImage}
@@ -90,6 +98,7 @@ export default function TopGallery() {
                       style={{
                         opacity: hoveredProject === project ? 0.3 : 1
                       }}
+                      onLoad={() => setLoadedIds(prev => new Set([...prev, project._id]))}
                     />
                   ) : (
                     <div className="w-full h-full" />

@@ -54,6 +54,9 @@ async function fetchGalleryData() {
     // Phase 4: Optimize image URLs via Sanity CDN
     const optimizedImageProjects = imageProjects.map(project => ({
       ...project,
+      coverImageBlur: project.coverImage
+        ? urlFor(project.coverImage).width(20).blur(200).quality(20).url()
+        : null,
       coverImage: project.coverImage
         ? urlFor(project.coverImage).width(400).height(400).format('webp').quality(80).url()
         : null,
@@ -65,6 +68,9 @@ async function fetchGalleryData() {
       const optimizedThumbnail = project.thumbnailImage
         ? urlFor(project.thumbnailImage).width(400).height(400).format('webp').quality(80).url()
         : null;
+      const thumbnailBlur = project.thumbnailImage
+        ? urlFor(project.thumbnailImage).width(20).blur(200).quality(20).url()
+        : null;
 
       if (project.coverVideo?.asset?.asset?._ref) {
         const coverVideoRef = project.coverVideo.asset.asset._ref;
@@ -74,6 +80,7 @@ async function fetchGalleryData() {
           return {
             ...project,
             thumbnailImage: optimizedThumbnail,
+            thumbnailImageBlur: thumbnailBlur,
             video: {
               asset: {
                 _type: "mux.videoAsset",
@@ -92,7 +99,7 @@ async function fetchGalleryData() {
         }
       }
 
-      return { ...project, thumbnailImage: optimizedThumbnail };
+      return { ...project, thumbnailImage: optimizedThumbnail, thumbnailImageBlur: thumbnailBlur };
     })
 
     return { imageProjects: optimizedImageProjects, videoProjects: enhancedVideoProjects }
@@ -106,6 +113,10 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://stream.mux.com" />
+        <link rel="preconnect" href="https://image.mux.com" />
+      </head>
       <body className="p-2.5 h-svh overflow-hidden">
         <ClientLayout initialData={initialData}>
           {children}

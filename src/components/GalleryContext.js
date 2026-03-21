@@ -22,6 +22,8 @@ export function GalleryProvider({ children, initialData }) {
   const [hoveredProject, setHoveredProject] = useState(null)
   const topGalleryRef = useRef(null);
   const bottomGalleryRef = useRef(null);
+  const topScrollContainerRef = useRef(null);
+  const bottomScrollContainerRef = useRef(null);
   const pathname = usePathname();
 
   // Reset hover state when navigating back to home page
@@ -30,65 +32,68 @@ export function GalleryProvider({ children, initialData }) {
   }, [pathname]);
 
   // Register refs for galleries to enable global wheel event handling
+  const findScrollContainer = (galleryEl) => {
+    if (!galleryEl) return null;
+    const direct = Array.from(galleryEl.children)
+      .find(child =>
+        child.classList &&
+        (child.classList.contains('overflow-x-auto') ||
+         child.classList.contains('scrollbar-hide'))
+      );
+    if (direct) return direct;
+    return galleryEl.querySelector('.overflow-x-auto') ||
+           galleryEl.querySelector('.scrollbar-hide');
+  };
+
   const registerTopGallery = (ref) => {
     topGalleryRef.current = ref;
+    topScrollContainerRef.current = findScrollContainer(ref);
   };
 
   const registerBottomGallery = (ref) => {
     bottomGalleryRef.current = ref;
+    bottomScrollContainerRef.current = findScrollContainer(ref);
   };
 
   // Global wheel event handler
   useEffect(() => {
-    const findScrollContainer = (galleryRef) => {
-      if (!galleryRef) return null;
+    if (pathname !== '/') return;
 
-      const directScrollContainer = Array.from(galleryRef.children)
-        .find(child =>
-          child.classList &&
-          (child.classList.contains('overflow-x-auto') ||
-           child.classList.contains('scrollbar-hide'))
-        );
-
-      if (directScrollContainer) return directScrollContainer;
-
-      return galleryRef.querySelector('.overflow-x-auto') ||
-             galleryRef.querySelector('.scrollbar-hide');
-    };
+    let pendingScroll = null;
 
     const handleGlobalWheel = (e) => {
       if (e.ctrlKey) return;
 
+      let scrollContainer = null;
+
       if (topGalleryRef.current && (
           topGalleryRef.current === e.target ||
           topGalleryRef.current.contains(e.target))) {
-        e.preventDefault();
-
-        const scrollContainer = findScrollContainer(topGalleryRef.current);
-
-        if (scrollContainer) {
-          const scrollDelta = e.deltaX || e.deltaY * 1.5;
-          scrollContainer.scrollLeft += scrollDelta;
-        }
-        return;
-      }
-
-      if (bottomGalleryRef.current && (
+        scrollContainer = topScrollContainerRef.current;
+      } else if (bottomGalleryRef.current && (
           bottomGalleryRef.current === e.target ||
           bottomGalleryRef.current.contains(e.target))) {
-        e.preventDefault();
+        scrollContainer = bottomScrollContainerRef.current;
+      }
 
-        const scrollContainer = findScrollContainer(bottomGalleryRef.current);
+      if (!scrollContainer) return;
 
-        if (scrollContainer) {
-          const scrollDelta = e.deltaX || e.deltaY * 1.5;
-          scrollContainer.scrollLeft += scrollDelta;
-        }
-        return;
+      e.preventDefault();
+      const scrollDelta = e.deltaX || e.deltaY * 1.5;
+
+      if (pendingScroll === null) {
+        pendingScroll = { container: scrollContainer, delta: scrollDelta };
+        requestAnimationFrame(() => {
+          if (pendingScroll) {
+            pendingScroll.container.scrollLeft += pendingScroll.delta;
+            pendingScroll = null;
+          }
+        });
+      } else {
+        pendingScroll.container = scrollContainer;
+        pendingScroll.delta += scrollDelta;
       }
     };
-
-    if (pathname !== '/') return;
 
     window.addEventListener('wheel', handleGlobalWheel, { passive: false, capture: true });
 

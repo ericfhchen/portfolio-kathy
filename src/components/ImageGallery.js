@@ -125,8 +125,8 @@ export default function ImageGallery({ images, name }) {
     console.log(`[IMG] Slot ${slotIndex} loaded in ${elapsed}ms | active: ${activeImageSlot} | switching: ${slotIndex !== activeImageSlot}`);
     if (slotIndex !== activeImageSlot) {
       setActiveImageSlot(slotIndex);
-      setBlurVisible(false);
     }
+    setBlurVisible(false);
   };
 
   // Track mount time for accurate first-image timing

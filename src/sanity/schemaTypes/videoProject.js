@@ -219,6 +219,19 @@ export const videoProjects = defineType({
               }
             }
           }
+        },
+        {
+          name: 'clipPlaybackId',
+          title: 'Hover Clip Playback ID',
+          type: 'string',
+          description: 'Auto-generated 5s clip for hover preview. Do not edit manually.',
+          readOnly: true,
+        },
+        {
+          name: 'clipAssetId',
+          title: 'Hover Clip Asset ID',
+          type: 'string',
+          hidden: true,
         }
       ],
       preview: {

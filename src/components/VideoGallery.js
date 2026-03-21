@@ -31,14 +31,20 @@ export default function VideoGallery({ videos }) {
   const playerRef = useRef(null);
   const containerRef = useRef(null);
   
-  // Only run client-side code after mounting and detect iOS
+  const [isSafariDesktop, setIsSafariDesktop] = useState(false);
+
+  // Only run client-side code after mounting and detect iOS / Safari
   useEffect(() => {
     setMounted(true);
-    
+
     // Check if the device is iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
+
+    // Detect desktop Safari (Safari but not iOS)
+    const isSafari = /^((?!chrome|android).)*safari/i.test(window.navigator.userAgent);
+    setIsSafariDesktop(isSafari && !isIOSDevice);
   }, [videos]);
 
   // Use useMemo to calculate effective videos that won't change on every render
@@ -164,9 +170,7 @@ export default function VideoGallery({ videos }) {
 
   // Reset progress state when video changes — autoPlay on the player handles playback
   useEffect(() => {
-    console.log(`[VIDEO-DEBUG] video-change — index=${currentVideoIndex}, mounted=${mounted}`);
     if (mounted) {
-      window.__videoLoadStart = performance.now();
       setIsPlaying(false);
       setProgress(0);
       lastCurrentTimeRef.current = 0;
@@ -180,8 +184,8 @@ export default function VideoGallery({ videos }) {
     stalledRef.current = false;
     setIsVideoLoading(true);
 
-      // For iOS native video, we need to manually reset since it doesn't re-mount
-      if (isIOS && playerRef.current) {
+      // For native video (iOS + Safari desktop), we need to manually reset since it doesn't re-mount
+      if ((isIOS || isSafariDesktop) && playerRef.current) {
         try {
           playerRef.current.currentTime = 0;
           playerRef.current.muted = true;
@@ -190,15 +194,13 @@ export default function VideoGallery({ videos }) {
           if (posterUrl) {
             playerRef.current.poster = posterUrl;
           }
-          playerRef.current.play().catch(e => {
-            console.log("[VIDEO-DEBUG] Error autoplaying iOS video:", e);
-          });
-        } catch (e) {
-          console.log("[VIDEO-DEBUG] Error resetting iOS player:", e);
+          playerRef.current.play().catch(() => {});
+        } catch {
+          // Error resetting native player
         }
       }
     }
-  }, [currentVideoIndex, mounted, isIOS, effectiveVideos]);
+  }, [currentVideoIndex, mounted, isIOS, isSafariDesktop, effectiveVideos]);
 
   // Add new effect to ensure thumbnails are properly initialized
   useEffect(() => {
@@ -208,24 +210,23 @@ export default function VideoGallery({ videos }) {
         const currentVideo = effectiveVideos[currentVideoIndex];
         const posterUrl = getPosterUrl(currentVideo);
 
-        if (isIOS && playerRef.current) {
+        if ((isIOS || isSafariDesktop) && playerRef.current) {
           playerRef.current.poster = posterUrl;
         }
 
-        if (!isIOS && playerRef.current) {
+        if (!isIOS && !isSafariDesktop && playerRef.current) {
           if (playerRef.current.shadowRoot) {
             const posterImg = playerRef.current.shadowRoot.querySelector('img');
             if (posterImg && posterImg.src) {
-              console.log(`[VIDEO-DEBUG] thumbnail-init — updating shadow DOM poster`);
               posterImg.src = posterUrl;
             }
           }
         }
-      } catch (e) {
-        console.log("[VIDEO-DEBUG] Error initializing thumbnail:", e);
+      } catch {
+        // Error initializing thumbnail
       }
     }
-  }, [mounted, effectiveVideos, currentVideoIndex, isIOS]);
+  }, [mounted, effectiveVideos, currentVideoIndex, isIOS, isSafariDesktop]);
 
   // No separate first-autoplay effect needed — autoPlay={true} on MuxPlayer handles it
   // For iOS, the video-change effect above handles the first video too (currentVideoIndex starts at 0)
@@ -241,6 +242,9 @@ export default function VideoGallery({ videos }) {
     const findVideoElement = () => {
       if (!playerRef.current) return null;
       const el = playerRef.current;
+
+      // If the ref IS the video element (native <video> path for Safari)
+      if (el.nodeName === 'VIDEO') return el;
 
       // Try multiple access patterns for MuxPlayer's underlying <video>
       // 1. Direct query (light DOM)
@@ -276,7 +280,6 @@ export default function VideoGallery({ videos }) {
       if (!videoEl) return;
 
       const mt = metadata?.mediaTime ?? metadata?.presentationTime ?? now;
-      console.log(`[VIDEO-DEBUG] frame callback — mediaTime=${metadata?.mediaTime}, presentationTime=${metadata?.presentationTime}, mt=${mt?.toFixed(3)}, lastMt=${lastMediaTime?.toFixed(3)}, frameCount=${frameCount}`);
 
       if (mt > lastMediaTime && lastMediaTime >= 0) {
         frameCount++;
@@ -291,8 +294,6 @@ export default function VideoGallery({ videos }) {
 
       if (frameCount >= FRAMES_NEEDED) {
         const ct = playerRef.current?.currentTime || mt;
-        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-        console.log(`[VIDEO-DEBUG] ✓ REAL PLAYBACK (${FRAMES_NEEDED} frames) — ${elapsed}ms since loadStart, ct=${ct.toFixed(2)}`);
         hasReallyStartedRef.current = true;
         wallClockStartRef.current = performance.now();
         startTimeOffsetRef.current = ct;
@@ -313,7 +314,6 @@ export default function VideoGallery({ videos }) {
       if (videoEl.requestVideoFrameCallback) {
         frameCallbackId = videoEl.requestVideoFrameCallback(onFrame);
       } else {
-        console.log(`[VIDEO-DEBUG] requestVideoFrameCallback not supported, using fallback`);
         // Fallback: just clear loading after canPlayThrough fires
         hasReallyStartedRef.current = true;
         setIsVideoLoading(false);
@@ -637,16 +637,19 @@ export default function VideoGallery({ videos }) {
                     maxHeight: '100%',
                   }}
                 >
-                  {isIOS ? (
-                    // Use native HTML5 video for iOS with Safari's built-in controls
+                  {(isIOS || isSafariDesktop) ? (
+                    // Use native HTML5 video for Safari (iOS + desktop) to avoid
+                    // MuxPlayer's HLS handling which causes a ~3s buffering pause
+                    // on Safari due to ABR quality switching.
                     <video
                       ref={playerRef}
                       src={`https://stream.mux.com/${playbackId}.m3u8`}
                       poster={posterUrl}
                       playsInline
-                      controls
+                      {...(isIOS ? { controls: true } : {})}
                       autoPlay
                       muted
+                      preload="auto"
                       style={{
                         position: 'absolute',
                         top: '0',
@@ -657,14 +660,19 @@ export default function VideoGallery({ videos }) {
                         objectFit: 'contain',
                         backgroundColor: 'transparent',
                       }}
-                      onPlay={() => {
-                        setIsPlaying(true);
+                      onCanPlay={() => {
+                        if (!canPlayTimeRef.current) {
+                          canPlayTimeRef.current = performance.now();
+                        }
                       }}
+                      onPlay={() => setIsPlaying(true)}
                       onPause={() => setIsPlaying(false)}
+                      onWaiting={() => { stalledRef.current = true; }}
+                      onStalled={() => { stalledRef.current = true; }}
                       onVolumeChange={(e) => setIsMuted(e.target.muted)}
                     />
                   ) : (
-                    // Use MuxPlayer for non-iOS devices
+                    // Use MuxPlayer for non-Safari browsers (Chrome, Firefox, etc.)
                     <MuxPlayer
                       ref={playerRef}
                       playbackId={playbackId}
@@ -689,7 +697,7 @@ export default function VideoGallery({ videos }) {
                         '--controls': 'none',
                         '--media-object-fit': 'contain',
                         '--media-object-position': 'center',
-                        '--poster-object-fit': 'contain', 
+                        '--poster-object-fit': 'contain',
                         '--poster-object-position': 'center',
                         '--media-background-color': 'transparent',
                         '--poster-background-color': 'transparent',
@@ -705,48 +713,15 @@ export default function VideoGallery({ videos }) {
                         boxSizing: 'border-box',
                         objectFit: 'contain',
                       }}
-                      onLoadStart={() => {
-                        window.__videoLoadStart = performance.now();
-                        console.log(`[VIDEO-DEBUG] onLoadStart — beginning HLS fetch`);
-                      }}
-                      onLoadedMetadata={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onLoadedMetadata — ${elapsed}ms since loadStart, duration=${playerRef.current?.duration?.toFixed(2)}`);
-                      }}
-                      onLoadedData={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onLoadedData — ${elapsed}ms since loadStart`);
-                      }}
                       onCanPlay={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onCanPlay — ${elapsed}ms since loadStart`);
                         if (!canPlayTimeRef.current) {
                           canPlayTimeRef.current = performance.now();
                         }
                       }}
-                      onCanPlayThrough={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onCanPlayThrough — ${elapsed}ms since loadStart`);
-                      }}
-                      onPlaying={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onPlaying — ${elapsed}ms since loadStart, currentTime=${playerRef.current?.currentTime?.toFixed(2)}`);
-                      }}
-                      onPlay={() => {
-                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
-                        console.log(`[VIDEO-DEBUG] onPlay — ${elapsed}ms, ct=${playerRef.current?.currentTime?.toFixed(2)}, hasStarted=${hasReallyStartedRef.current}, isVideoLoading=${isVideoLoading}, consecutive=${consecutiveForwardRef.current}`);
-                        setIsPlaying(true);
-                      }}
-                      onPause={() => {
-                        console.log(`[VIDEO-DEBUG] onPause — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
-                        setIsPlaying(false);
-                      }}
-                      onWaiting={() => {
-                        console.log(`[VIDEO-DEBUG] onWaiting — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
-                      }}
-                      onStalled={() => {
-                        console.log(`[VIDEO-DEBUG] onStalled — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
-                      }}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onWaiting={() => { stalledRef.current = true; }}
+                      onStalled={() => { stalledRef.current = true; }}
                       onMuted={() => setIsMuted(true)}
                       onUnmuted={() => setIsMuted(false)}
                       onEnterFullscreen={() => setIsFullscreen(true)}

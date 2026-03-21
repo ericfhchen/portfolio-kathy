@@ -7,6 +7,7 @@ import {schema} from './src/sanity/schemaTypes'
 import {apiVersion, dataset, projectId} from './src/sanity/env'
 import {muxInput} from 'sanity-plugin-mux-input'
 import {orderableDocumentListDeskItem} from '@sanity/orderable-document-list'
+import {useGenerateClipAction} from './src/sanity/actions/generateClipAction'
 
 export default defineConfig({
   basePath: '/studio',
@@ -14,6 +15,14 @@ export default defineConfig({
   dataset,
   schema: {
     types: schema.types,
+  },
+  document: {
+    actions: (prev, context) => {
+      if (context.schemaType === 'videoProjects') {
+        return [...prev, useGenerateClipAction];
+      }
+      return prev;
+    },
   },
   plugins: [
     structureTool({
@@ -106,6 +115,7 @@ export default defineConfig({
       }
     }),
     muxInput({
+      mp4_support: 'standard',
       mux: {
         tokenId: process.env.SANITY_STUDIO_MUX_TOKEN_ID,
         tokenSecret: process.env.SANITY_STUDIO_MUX_TOKEN_SECRET,
