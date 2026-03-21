@@ -16,6 +16,8 @@ export default function ImageGallery({ images, name }) {
   const navTimeRef = useRef(null);
   const preloadedRef = useRef(new Set());
   const inFlightRef = useRef(new Set());
+  const slot0Ref = useRef(null);
+  const slot1Ref = useRef(null);
 
   // Initialize image slots
   useEffect(() => {
@@ -143,6 +145,29 @@ export default function ImageGallery({ images, name }) {
     }
   }, [images]);
 
+  // Safari fallback: check if the active image is already loaded (onLoad may not fire)
+  useEffect(() => {
+    if (!blurVisible) return;
+    const ref = activeImageSlot === 0 ? slot0Ref : slot1Ref;
+    const img = ref.current?.querySelector('img') ?? ref.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      console.log(`[IMG] Safari fallback: slot ${activeImageSlot} already complete, hiding blur`);
+      setBlurVisible(false);
+      return;
+    }
+    // Also poll briefly in case complete becomes true after paint
+    const id = setInterval(() => {
+      const el = ref.current?.querySelector('img') ?? ref.current;
+      if (el && el.complete && el.naturalWidth > 0) {
+        console.log(`[IMG] Safari fallback (poll): slot ${activeImageSlot} complete, hiding blur`);
+        setBlurVisible(false);
+        clearInterval(id);
+      }
+    }, 100);
+    const timeout = setTimeout(() => clearInterval(id), 3000);
+    return () => { clearInterval(id); clearTimeout(timeout); };
+  }, [blurVisible, activeImageSlot, currentImageIndex]);
+
   if (!images || images.length === 0) return null;
 
   // Current blur URL for the displayed image
@@ -194,48 +219,52 @@ export default function ImageGallery({ images, name }) {
           />
 
           {/* Image Slot 0 */}
-          <Image
-            src={images[imageSlots[0]]}
-            alt={`${name} - Image ${imageSlots[0] + 1}`}
-            width={1200}
-            height={800}
-            unoptimized
-            sizes="(max-width: 768px) 100vw, 75vw"
-            className={`max-w-full max-h-full object-contain select-none absolute transition-opacity duration-0 ${
-              activeImageSlot === 0 ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              maxHeight: 'calc(100% - 10px)',
-              objectFit: 'contain',
-              zIndex: activeImageSlot === 0 ? 4 : 3,
-            }}
-            priority={imageSlots[0] === 0}
-            unselectable="on"
-            draggable="false"
-            onLoad={() => handleImageLoad(0)}
-          />
+          <div ref={slot0Ref} className="contents">
+            <Image
+              src={images[imageSlots[0]]}
+              alt={`${name} - Image ${imageSlots[0] + 1}`}
+              width={1200}
+              height={800}
+              unoptimized
+              sizes="(max-width: 768px) 100vw, 75vw"
+              className={`max-w-full max-h-full object-contain select-none absolute transition-opacity duration-0 ${
+                activeImageSlot === 0 ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                maxHeight: 'calc(100% - 10px)',
+                objectFit: 'contain',
+                zIndex: activeImageSlot === 0 ? 4 : 3,
+              }}
+              priority={imageSlots[0] === 0}
+              unselectable="on"
+              draggable="false"
+              onLoad={() => handleImageLoad(0)}
+            />
+          </div>
 
           {/* Image Slot 1 */}
-          <Image
-            src={images[imageSlots[1]]}
-            alt={`${name} - Image ${imageSlots[1] + 1}`}
-            width={1200}
-            height={800}
-            unoptimized
-            sizes="(max-width: 768px) 100vw, 75vw"
-            className={`max-w-full max-h-full object-contain select-none absolute transition-opacity duration-0 ${
-              activeImageSlot === 1 ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              maxHeight: 'calc(100% - 10px)',
-              objectFit: 'contain',
-              zIndex: activeImageSlot === 1 ? 4 : 3,
-            }}
-            priority={imageSlots[1] === 0}
-            unselectable="on"
-            draggable="false"
-            onLoad={() => handleImageLoad(1)}
-          />
+          <div ref={slot1Ref} className="contents">
+            <Image
+              src={images[imageSlots[1]]}
+              alt={`${name} - Image ${imageSlots[1] + 1}`}
+              width={1200}
+              height={800}
+              unoptimized
+              sizes="(max-width: 768px) 100vw, 75vw"
+              className={`max-w-full max-h-full object-contain select-none absolute transition-opacity duration-0 ${
+                activeImageSlot === 1 ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                maxHeight: 'calc(100% - 10px)',
+                objectFit: 'contain',
+                zIndex: activeImageSlot === 1 ? 4 : 3,
+              }}
+              priority={imageSlots[1] === 0}
+              unselectable="on"
+              draggable="false"
+              onLoad={() => handleImageLoad(1)}
+            />
+          </div>
         </div>
       </div>
 
