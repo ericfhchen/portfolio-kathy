@@ -17,7 +17,16 @@ export default function VideoGallery({ videos }) {
   const [videoAspectRatio, setVideoAspectRatio] = useState('16/9');
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [lastCurrentTime, setLastCurrentTime] = useState(0); // Track previous currentTime to ensure video is progressing
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const lastCurrentTimeRef = useRef(0); // Track previous currentTime — ref to avoid re-creating intervals
+  const progressRef = useRef(0); // Track progress as ref too for the same reason
+  const hasReallyStartedRef = useRef(false); // True once video has played past the HLS buffering phase
+  const consecutiveForwardRef = useRef(0); // Count consecutive forward ticks to detect real playback
+  const wallClockStartRef = useRef(null); // Wall-clock time when real playback started
+  const startTimeOffsetRef = useRef(0); // currentTime when real playback started
+  const maxCurrentTimeRef = useRef(0); // Highest currentTime ever observed (for syncing)
+  const canPlayTimeRef = useRef(null); // Wall-clock time when onCanPlay fired
+  const stalledRef = useRef(false); // Set true on onWaiting/onStalled, cleared by progress ticks
   const controlsTimeoutRef = useRef(null);
   const playerRef = useRef(null);
   const containerRef = useRef(null);
@@ -54,18 +63,24 @@ export default function VideoGallery({ videos }) {
     );
     setIsPlaying(false);
     setProgress(0);
-    setLastCurrentTime(0); // Reset progress tracking timer
-    
+    lastCurrentTimeRef.current = 0;
+    progressRef.current = 0;
+    hasReallyStartedRef.current = false;
+    consecutiveForwardRef.current = 0;
+    wallClockStartRef.current = null;
+    startTimeOffsetRef.current = 0;
+    maxCurrentTimeRef.current = 0;
+    canPlayTimeRef.current = null;
+    stalledRef.current = false;
+    setIsVideoLoading(true);
+
     // Reset player if it exists
     if (playerRef.current) {
       try {
-        // For iOS native video element
         if (isIOS) {
           playerRef.current.currentTime = 0;
           playerRef.current.pause();
-        } 
-        // For MuxPlayer
-        else if (playerRef.current.pause) {
+        } else if (playerRef.current.pause) {
           playerRef.current.pause();
         }
       } catch (e) {
@@ -73,27 +88,33 @@ export default function VideoGallery({ videos }) {
       }
     }
   }, [effectiveVideos, isIOS]);
-  
+
   const goToPrevVideo = useCallback(() => {
     if (!effectiveVideos || effectiveVideos.length === 0) return;
-    
-    setCurrentVideoIndex((prev) => 
+
+    setCurrentVideoIndex((prev) =>
       prev === 0 ? effectiveVideos.length - 1 : prev - 1
     );
     setIsPlaying(false);
     setProgress(0);
-    setLastCurrentTime(0); // Reset progress tracking timer
-    
+    lastCurrentTimeRef.current = 0;
+    progressRef.current = 0;
+    hasReallyStartedRef.current = false;
+    consecutiveForwardRef.current = 0;
+    wallClockStartRef.current = null;
+    startTimeOffsetRef.current = 0;
+    maxCurrentTimeRef.current = 0;
+    canPlayTimeRef.current = null;
+    stalledRef.current = false;
+    setIsVideoLoading(true);
+
     // Reset player if it exists
     if (playerRef.current) {
       try {
-        // For iOS native video element
         if (isIOS) {
           playerRef.current.currentTime = 0;
           playerRef.current.pause();
-        } 
-        // For MuxPlayer
-        else if (playerRef.current.pause) {
+        } else if (playerRef.current.pause) {
           playerRef.current.pause();
         }
       } catch (e) {
@@ -141,222 +162,263 @@ export default function VideoGallery({ videos }) {
     }
   }, [isFullscreen]);
 
-  // Reset player when video changes and autoplay with muted sound
+  // Reset progress state when video changes — autoPlay on the player handles playback
   useEffect(() => {
-    if (mounted && playerRef.current) {
+    console.log(`[VIDEO-DEBUG] video-change — index=${currentVideoIndex}, mounted=${mounted}`);
+    if (mounted) {
+      window.__videoLoadStart = performance.now();
       setIsPlaying(false);
       setProgress(0);
-      setLastCurrentTime(0); // Reset progress tracking timer
-      
-      try {
-        // For iOS native video element
-        if (isIOS) {
+      lastCurrentTimeRef.current = 0;
+      progressRef.current = 0;
+      hasReallyStartedRef.current = false;
+    consecutiveForwardRef.current = 0;
+    wallClockStartRef.current = null;
+    startTimeOffsetRef.current = 0;
+    maxCurrentTimeRef.current = 0;
+    canPlayTimeRef.current = null;
+    stalledRef.current = false;
+    setIsVideoLoading(true);
+
+      // For iOS native video, we need to manually reset since it doesn't re-mount
+      if (isIOS && playerRef.current) {
+        try {
           playerRef.current.currentTime = 0;
-          playerRef.current.pause();
-          
-          // Force poster refresh for iOS
+          playerRef.current.muted = true;
+          setIsMuted(true);
           const posterUrl = getPosterUrl(effectiveVideos[currentVideoIndex]);
           if (posterUrl) {
             playerRef.current.poster = posterUrl;
           }
-          
-          // Autoplay muted for iOS
-          playerRef.current.muted = true;
-          setIsMuted(true);
-          
-          // Use requestAnimationFrame to ensure the video is ready
-          requestAnimationFrame(() => {
-            playerRef.current.play().catch(e => {
-              console.log("Error autoplaying iOS video:", e);
-            });
-            // Don't set isPlaying here - let the onPlay event handle it
+          playerRef.current.play().catch(e => {
+            console.log("[VIDEO-DEBUG] Error autoplaying iOS video:", e);
           });
-        } 
-        // For MuxPlayer
-        else if (playerRef.current.pause) {
-          playerRef.current.pause();
-          
-          // Autoplay muted for MuxPlayer
-          playerRef.current.muted = true;
-          setIsMuted(true);
-          
-          // Use requestAnimationFrame to ensure the player is ready
-          requestAnimationFrame(() => {
-            playerRef.current.play().catch(e => {
-              console.log("Error autoplaying MuxPlayer video:", e);
-            });
-            // Don't set isPlaying here - let the onPlay event handle it
-          });
+        } catch (e) {
+          console.log("[VIDEO-DEBUG] Error resetting iOS player:", e);
         }
-      } catch (e) {
-        console.log("Error resetting player on video change:", e);
       }
     }
   }, [currentVideoIndex, mounted, isIOS, effectiveVideos]);
 
   // Add new effect to ensure thumbnails are properly initialized
   useEffect(() => {
+    // Thumbnail init effect
     if (mounted && effectiveVideos.length > 0 && playerRef.current) {
-      // Force thumbnail refresh on initial mount
       try {
         const currentVideo = effectiveVideos[currentVideoIndex];
         const posterUrl = getPosterUrl(currentVideo);
-        
-        // For iOS, we need to manually set the poster attribute
+
         if (isIOS && playerRef.current) {
           playerRef.current.poster = posterUrl;
         }
-        
-        // For MuxPlayer, we can manipulate the currentTime to ensure proper thumbnail
+
         if (!isIOS && playerRef.current) {
-          // Update the poster time through a direct DOM access if needed
           if (playerRef.current.shadowRoot) {
             const posterImg = playerRef.current.shadowRoot.querySelector('img');
             if (posterImg && posterImg.src) {
+              console.log(`[VIDEO-DEBUG] thumbnail-init — updating shadow DOM poster`);
               posterImg.src = posterUrl;
             }
           }
         }
       } catch (e) {
-        console.log("Error initializing thumbnail:", e);
+        console.log("[VIDEO-DEBUG] Error initializing thumbnail:", e);
       }
     }
   }, [mounted, effectiveVideos, currentVideoIndex, isIOS]);
 
-  // Autoplay first video when component mounts
+  // No separate first-autoplay effect needed — autoPlay={true} on MuxPlayer handles it
+  // For iOS, the video-change effect above handles the first video too (currentVideoIndex starts at 0)
+
+  // Detect real playback using requestVideoFrameCallback — fires only when actual frames render.
+  // This is the only reliable signal on Safari, where HLS reports phantom currentTime values.
   useEffect(() => {
-    if (mounted && effectiveVideos.length > 0 && playerRef.current && currentVideoIndex === 0) {
-      // Small delay to ensure video element is fully initialized
-      const timer = setTimeout(() => {
-        try {
-          if (isIOS) {
-            playerRef.current.muted = true;
-            setIsMuted(true);
-            playerRef.current.play().catch(e => {
-              console.log("Error autoplaying first iOS video:", e);
-            });
-            // Don't set isPlaying here - let the onPlay event handle it
-          } else if (playerRef.current) {
-            playerRef.current.muted = true;
-            setIsMuted(true);
-            playerRef.current.play().catch(e => {
-              console.log("Error autoplaying first MuxPlayer video:", e);
-            });
-            // Don't set isPlaying here - let the onPlay event handle it
-          }
-        } catch (e) {
-          console.log("Error in first video autoplay:", e);
-        }
-      }, 500);
+    if (!mounted || hasReallyStartedRef.current) return;
 
-      return () => clearTimeout(timer);
-    }
-  }, [mounted, effectiveVideos, isIOS, currentVideoIndex]);
+    let frameCallbackId = null;
+    let cancelled = false;
 
-  // Measure player width when video loads or changes
+    const findVideoElement = () => {
+      if (!playerRef.current) return null;
+      const el = playerRef.current;
+
+      // Try multiple access patterns for MuxPlayer's underlying <video>
+      // 1. Direct query (light DOM)
+      let video = el.querySelector?.('video');
+      if (video) return video;
+
+      video = el.shadowRoot?.querySelector?.('video');
+      if (video) return video;
+
+      const media = el.media || el.mediaEl;
+      if (media?.nodeName === 'VIDEO') return media;
+      if (media?.shadowRoot) {
+        video = media.shadowRoot.querySelector?.('video');
+        if (video) return video;
+      }
+
+      const muxVideo = el.shadowRoot?.querySelector?.('mux-video');
+      if (muxVideo?.shadowRoot) {
+        video = muxVideo.shadowRoot.querySelector?.('video');
+        if (video) return video;
+      }
+
+      return null;
+    };
+
+    const FRAMES_NEEDED = 2; // 2 distinct advancing frames confirms real playback (mediaTime=0 is poster)
+    let frameCount = 0;
+    let lastMediaTime = -1;
+
+    const onFrame = (now, metadata) => {
+      if (cancelled || hasReallyStartedRef.current) return;
+      const videoEl = findVideoElement();
+      if (!videoEl) return;
+
+      const mt = metadata?.mediaTime ?? metadata?.presentationTime ?? now;
+      console.log(`[VIDEO-DEBUG] frame callback — mediaTime=${metadata?.mediaTime}, presentationTime=${metadata?.presentationTime}, mt=${mt?.toFixed(3)}, lastMt=${lastMediaTime?.toFixed(3)}, frameCount=${frameCount}`);
+
+      if (mt > lastMediaTime && lastMediaTime >= 0) {
+        frameCount++;
+        lastMediaTime = mt;
+      } else if (lastMediaTime < 0) {
+        lastMediaTime = mt; // first frame, just record
+      } else if (mt < lastMediaTime) {
+        frameCount = 0; // backward jump — reset
+        lastMediaTime = mt;
+      }
+      // mt == lastMediaTime → same frame repainted, skip (don't reset or count)
+
+      if (frameCount >= FRAMES_NEEDED) {
+        const ct = playerRef.current?.currentTime || mt;
+        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+        console.log(`[VIDEO-DEBUG] ✓ REAL PLAYBACK (${FRAMES_NEEDED} frames) — ${elapsed}ms since loadStart, ct=${ct.toFixed(2)}`);
+        hasReallyStartedRef.current = true;
+        wallClockStartRef.current = performance.now();
+        startTimeOffsetRef.current = ct;
+        maxCurrentTimeRef.current = ct;
+        lastCurrentTimeRef.current = ct;
+        setIsVideoLoading(false);
+        return;
+      }
+
+      // Keep waiting for more frames
+      frameCallbackId = videoEl.requestVideoFrameCallback(onFrame);
+    };
+
+    const waitForFrame = () => {
+      const videoEl = findVideoElement();
+      if (!videoEl || cancelled) return;
+
+      if (videoEl.requestVideoFrameCallback) {
+        frameCallbackId = videoEl.requestVideoFrameCallback(onFrame);
+      } else {
+        console.log(`[VIDEO-DEBUG] requestVideoFrameCallback not supported, using fallback`);
+        // Fallback: just clear loading after canPlayThrough fires
+        hasReallyStartedRef.current = true;
+        setIsVideoLoading(false);
+      }
+    };
+
+    // Try immediately, and retry periodically until the video element is available
+    const retryInterval = setInterval(() => {
+      if (cancelled || hasReallyStartedRef.current) {
+        clearInterval(retryInterval);
+        return;
+      }
+      waitForFrame();
+    }, 100);
+
+    waitForFrame();
+
+    return () => {
+      cancelled = true;
+      clearInterval(retryInterval);
+      const videoEl = findVideoElement();
+      if (videoEl && frameCallbackId != null && videoEl.cancelVideoFrameCallback) {
+        videoEl.cancelVideoFrameCallback(frameCallbackId);
+      }
+    };
+  }, [mounted, currentVideoIndex]);
+
+  // Update progress using wall-clock interpolation (Safari HLS currentTime oscillates)
   useEffect(() => {
-    if (playerRef.current) {
-      const updateWidth = () => {
-        const width = playerRef.current.offsetWidth;
-        setPlayerWidth(width);
-      };
-
-      // Initial measurement
-      updateWidth();
-
-      // Create observer to watch for size changes
-      const resizeObserver = new ResizeObserver(updateWidth);
-      resizeObserver.observe(playerRef.current);
-
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }
-  }, [currentVideoIndex, mounted]);
-
-  // Update progress - immediate updates with Safari protection
-  useEffect(() => {
-    if (playerRef.current && isPlaying) {
+    if (playerRef.current && isPlaying && hasReallyStartedRef.current) {
       const updateProgress = () => {
+        if (!playerRef.current || !wallClockStartRef.current) return;
         const currentTime = playerRef.current.currentTime;
         const duration = playerRef.current.duration;
-        
-        // Simple validation: only update if we have reasonable duration and currentTime
-        if (duration && !isNaN(duration) && duration > 0 && !isNaN(currentTime) && currentTime >= 0) {
-          if (duration < 86400) { // Reasonable video duration
-            // Only update if currentTime is progressing or at the beginning
-            if (currentTime >= lastCurrentTime || currentTime < 0.5) {
-              setProgress((currentTime / duration) * 100);
-              setLastCurrentTime(currentTime);
-            }
-          }
+
+        if (!duration || isNaN(duration) || duration <= 0 || duration >= 86400) return;
+
+        const wallElapsed = (performance.now() - wallClockStartRef.current) / 1000;
+        const estimatedTime = startTimeOffsetRef.current + wallElapsed;
+
+        maxCurrentTimeRef.current = Math.max(maxCurrentTimeRef.current, currentTime);
+
+        const effectiveTime = Math.min(
+          Math.max(estimatedTime, maxCurrentTimeRef.current),
+          duration
+        );
+
+        if (effectiveTime >= lastCurrentTimeRef.current) {
+          const newProgress = (effectiveTime / duration) * 100;
+          progressRef.current = newProgress;
+          lastCurrentTimeRef.current = effectiveTime;
+          setProgress(Math.min(newProgress, 100));
         }
       };
 
       const interval = setInterval(updateProgress, 100);
       return () => clearInterval(interval);
     }
-  }, [isPlaying, lastCurrentTime]);
+  }, [isPlaying, isVideoLoading]);
 
-  // Add a useEffect to measure the player position
+  // Measure player dimensions based on container and aspect ratio
   useEffect(() => {
-    if (playerRef.current && containerRef.current && mounted) {
-      const updatePlayerMetrics = () => {
-        try {
-          const containerRect = containerRef.current.getBoundingClientRect();
-          const containerWidth = containerRect.width;
-          const containerHeight = containerRect.height;
-          
-          // Parse aspect ratio for calculations
-          const [aspectWidth, aspectHeight] = videoAspectRatio.split('/').map(Number);
-          const aspectRatioValue = aspectWidth / aspectHeight;
-          
-          // Calculate the dimensions the player should have based on container and aspect ratio
-          let playerWidthValue, playerHeightValue;
-          
-          // If container is wider than the video would be at full height
-          if (containerWidth > containerHeight * aspectRatioValue) {
-            // Height constrained - set height to 100% of container and calculate width
-            playerHeightValue = containerHeight;
-            playerWidthValue = containerHeight * aspectRatioValue;
-          } else {
-            // Width constrained - set width to 100% of container and calculate height
-            playerWidthValue = containerWidth;
-            playerHeightValue = containerWidth / aspectRatioValue;
-          }
-          
-          // Update the state with the calculated values
-          setPlayerWidth(playerWidthValue);
-          setPlayerHeight(playerHeightValue);
-        } catch {
-          // Error measuring player
+    if (!playerRef.current || !containerRef.current || !mounted) return;
+
+    const updatePlayerMetrics = () => {
+      try {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+
+        const [aspectWidth, aspectHeight] = videoAspectRatio.split('/').map(Number);
+        const aspectRatioValue = aspectWidth / aspectHeight;
+
+        let playerWidthValue, playerHeightValue;
+
+        if (containerWidth > containerHeight * aspectRatioValue) {
+          playerHeightValue = containerHeight;
+          playerWidthValue = containerHeight * aspectRatioValue;
+        } else {
+          playerWidthValue = containerWidth;
+          playerHeightValue = containerWidth / aspectRatioValue;
         }
-      };
-      
-      updatePlayerMetrics();
-      
-      // Update metrics when window resizes
-      window.addEventListener('resize', updatePlayerMetrics);
-      
-      // Also try with a delay to ensure the player has rendered
-      const timeoutId = setTimeout(updatePlayerMetrics, 300);
-      
-      // Also update when player changes dimensions
-      const resizeObserver = new ResizeObserver(updatePlayerMetrics);
-      if (playerRef.current) {
-        resizeObserver.observe(playerRef.current);
+
+        setPlayerWidth(playerWidthValue);
+        setPlayerHeight(playerHeightValue);
+      } catch {
+        // Error measuring player
       }
-      if (containerRef.current) {
-        resizeObserver.observe(containerRef.current);
-      }
-      
-      return () => {
-        window.removeEventListener('resize', updatePlayerMetrics);
-        clearTimeout(timeoutId);
-        resizeObserver.disconnect();
-      };
-    }
-  }, [mounted, currentVideoIndex, isPlaying, videoAspectRatio]);
+    };
+
+    updatePlayerMetrics();
+
+    window.addEventListener('resize', updatePlayerMetrics);
+    const timeoutId = setTimeout(updatePlayerMetrics, 300);
+
+    const resizeObserver = new ResizeObserver(updatePlayerMetrics);
+    resizeObserver.observe(playerRef.current);
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      window.removeEventListener('resize', updatePlayerMetrics);
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+    };
+  }, [mounted, currentVideoIndex, videoAspectRatio]);
 
   // Add event listeners for fullscreen changes and keyboard shortcuts
   useEffect(() => {
@@ -404,66 +466,41 @@ export default function VideoGallery({ videos }) {
     };
   }, [mounted, isFullscreen, goToNextVideo, goToPrevVideo, toggleFullscreen]);
 
-  // Handle controls visibility
+  // Handle controls visibility (show on mouse move, hide after 3s when playing)
+  // Always visible during loading; stay visible 1s after loading clears
   useEffect(() => {
-    if (mounted) {
-      const startControlsTimer = () => {
-        // Clear any existing timeout
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-        }
-        
-        // Show controls
-        setShowControls(true);
-        
-        // Set timeout to hide controls after 3 seconds
-        controlsTimeoutRef.current = setTimeout(() => {
-          if (isPlaying) {
-            setShowControls(false);
-          }
-        }, 3000);
-      };
-      
-      // Start the timer initially
-      startControlsTimer();
-      
-      // Add event listeners for mouse movement and hover
-      const handleMouseMove = () => {
-        startControlsTimer();
-      };
-      
-      // Capture current ref value to use in cleanup
-      const currentContainer = containerRef.current;
-      
-      if (currentContainer) {
-        currentContainer.addEventListener('mousemove', handleMouseMove);
+    if (!mounted) return;
+
+    const startControlsTimer = () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
       }
-      
-      return () => {
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-        }
-        if (currentContainer) {
-          currentContainer.removeEventListener('mousemove', handleMouseMove);
-        }
-      };
+      setShowControls(true);
+      if (isPlaying && !isVideoLoading) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          setShowControls(false);
+        }, 3000);
+      }
+    };
+
+    startControlsTimer();
+
+    const handleMouseMove = () => startControlsTimer();
+    const currentContainer = containerRef.current;
+
+    if (currentContainer) {
+      currentContainer.addEventListener('mousemove', handleMouseMove);
     }
-  }, [mounted, isPlaying]);
-  
-  // Reset controls visibility when play state changes
-  useEffect(() => {
-    setShowControls(true);
-    
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    
-    if (isPlaying) {
-      controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    }
-  }, [isPlaying]);
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+      if (currentContainer) {
+        currentContainer.removeEventListener('mousemove', handleMouseMove);
+      }
+    };
+  }, [mounted, isPlaying, isVideoLoading]);
 
   // Update aspect ratio when current video changes
   useEffect(() => {
@@ -506,6 +543,14 @@ export default function VideoGallery({ videos }) {
       const percentage = (x / rect.width) * 100;
       const newTime = (percentage / 100) * playerRef.current.duration;
       playerRef.current.currentTime = newTime;
+      // Reset refs to allow seeking; mark as started
+      lastCurrentTimeRef.current = newTime;
+      progressRef.current = percentage;
+      hasReallyStartedRef.current = true;
+      wallClockStartRef.current = performance.now();
+      startTimeOffsetRef.current = newTime;
+      maxCurrentTimeRef.current = newTime;
+      setIsVideoLoading(false);
       setProgress(percentage);
     }
   };
@@ -636,8 +681,6 @@ export default function VideoGallery({ videos }) {
                       defaultHiddenCaptions
                       defaultPosterTime={0}
                       thumbnailTime={0}
-                      startTime={0}
-                      currentTime={0}
                       metadata={{
                         video_title: currentVideo?.caption || "",
                         player_name: "Portfolio Gallery"
@@ -662,8 +705,48 @@ export default function VideoGallery({ videos }) {
                         boxSizing: 'border-box',
                         objectFit: 'contain',
                       }}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
+                      onLoadStart={() => {
+                        window.__videoLoadStart = performance.now();
+                        console.log(`[VIDEO-DEBUG] onLoadStart — beginning HLS fetch`);
+                      }}
+                      onLoadedMetadata={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onLoadedMetadata — ${elapsed}ms since loadStart, duration=${playerRef.current?.duration?.toFixed(2)}`);
+                      }}
+                      onLoadedData={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onLoadedData — ${elapsed}ms since loadStart`);
+                      }}
+                      onCanPlay={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onCanPlay — ${elapsed}ms since loadStart`);
+                        if (!canPlayTimeRef.current) {
+                          canPlayTimeRef.current = performance.now();
+                        }
+                      }}
+                      onCanPlayThrough={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onCanPlayThrough — ${elapsed}ms since loadStart`);
+                      }}
+                      onPlaying={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onPlaying — ${elapsed}ms since loadStart, currentTime=${playerRef.current?.currentTime?.toFixed(2)}`);
+                      }}
+                      onPlay={() => {
+                        const elapsed = window.__videoLoadStart ? (performance.now() - window.__videoLoadStart).toFixed(0) : '?';
+                        console.log(`[VIDEO-DEBUG] onPlay — ${elapsed}ms, ct=${playerRef.current?.currentTime?.toFixed(2)}, hasStarted=${hasReallyStartedRef.current}, isVideoLoading=${isVideoLoading}, consecutive=${consecutiveForwardRef.current}`);
+                        setIsPlaying(true);
+                      }}
+                      onPause={() => {
+                        console.log(`[VIDEO-DEBUG] onPause — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
+                        setIsPlaying(false);
+                      }}
+                      onWaiting={() => {
+                        console.log(`[VIDEO-DEBUG] onWaiting — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
+                      }}
+                      onStalled={() => {
+                        console.log(`[VIDEO-DEBUG] onStalled — ct=${playerRef.current?.currentTime?.toFixed(2)}`);
+                      }}
                       onMuted={() => setIsMuted(true)}
                       onUnmuted={() => setIsMuted(false)}
                       onEnterFullscreen={() => setIsFullscreen(true)}
@@ -714,32 +797,43 @@ export default function VideoGallery({ videos }) {
                         pointerEvents: showControls ? 'auto' : 'none'
                       }}
                     >
-                      <button 
+                      {isVideoLoading ? (
+                        <span
+                          className="text-center tracking-wide whitespace-nowrap"
+                          style={{ minWidth: '40px', gridColumn: 'span 2', color: 'rgba(255, 255, 255, 0.3)' }}
+                        >
+                          LOADING
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePlay();
+                            }}
+                            className="text-white hover:opacity-60 transition-opacity text-center tracking-wide whitespace-nowrap"
+                            style={{ minWidth: '40px' }}
+                          >
+                            {isPlaying ? 'PAUSE' : 'PLAY'}
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMute();
+                            }}
+                            className="text-white hover:opacity-60 text-center transition-opacity tracking-wide whitespace-nowrap"
+                            style={{ minWidth: '40px' }}
+                          >
+                            {isMuted ? 'UNMUTE' : 'MUTE'}
+                          </button>
+                        </>
+                      )}
+
+                      <div
                         onClick={(e) => {
                           e.stopPropagation();
-                          togglePlay();
-                        }}
-                        className="text-white hover:opacity-60 transition-opacity text-center tracking-wide whitespace-nowrap"
-                        style={{ minWidth: '40px' }}
-                      >
-                        {isPlaying ? 'PAUSE' : 'PLAY'}
-                      </button>
-                      
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleMute();
-                        }}
-                        className="text-white hover:opacity-60 text-center transition-opacity tracking-wide whitespace-nowrap"
-                        style={{ minWidth: '40px' }}
-                      >
-                        {isMuted ? 'UNMUTE' : 'MUTE'}
-                      </button>
-                      
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProgressClick(e);
+                          if (!isVideoLoading) handleProgressClick(e);
                         }}
                         style={{
                           position: 'relative',
@@ -748,10 +842,12 @@ export default function VideoGallery({ videos }) {
                           width: '100%',
                           display: 'flex',
                           alignItems: 'center',
-                          cursor: 'pointer'
+                          cursor: isVideoLoading ? 'default' : 'pointer',
+                          opacity: isVideoLoading ? 0.3 : 1,
+                          transition: 'opacity 0.3s ease'
                         }}
                       >
-                        <div 
+                        <div
                           style={{
                             backgroundColor: 'rgba(255, 255, 255, 0.3)',
                             height: '4px',
@@ -759,7 +855,7 @@ export default function VideoGallery({ videos }) {
                             position: 'relative'
                           }}
                         >
-                          <div 
+                          <div
                             className="bg-white"
                             style={{
                               width: `${progress}%`,
@@ -769,13 +865,16 @@ export default function VideoGallery({ videos }) {
                           />
                         </div>
                       </div>
-                      
-                      <button 
+
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleFullscreen();
+                          if (!isVideoLoading) toggleFullscreen();
                         }}
-                        className="text-white hover:opacity-60 transition-opacity tracking-wide whitespace-nowrap"
+                        className="text-white transition-opacity tracking-wide whitespace-nowrap"
+                        style={{ opacity: isVideoLoading ? 0.3 : 1 }}
+                        onMouseEnter={(e) => { if (!isVideoLoading) e.currentTarget.style.opacity = '0.6'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = isVideoLoading ? '0.3' : '1'; }}
                       >
                         {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
                       </button>
