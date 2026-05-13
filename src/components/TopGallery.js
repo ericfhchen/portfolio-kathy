@@ -96,7 +96,9 @@ export default function TopGallery() {
                       sizes="(max-width: 768px) 40vw, 200px"
                       className="w-full h-full object-cover transition-opacity duration-300 ease-in-out"
                       style={{
-                        opacity: hoveredProject === project ? 0.3 : 1
+                        opacity: hoveredProject === project ? 0.3 : 1,
+                        willChange: 'opacity',
+                        transform: 'translateZ(0)',
                       }}
                       onLoad={() => setLoadedIds(prev => new Set([...prev, project._id]))}
                     />
