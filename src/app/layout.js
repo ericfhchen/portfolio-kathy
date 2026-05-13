@@ -1,7 +1,8 @@
 import './globals.css'
 import ClientLayout from './ClientLayout'
 import { generateMetadata } from './metadata'
-import { client } from '../sanity/lib/client'
+import { sanityFetch } from '../sanity/lib/queries'
+import { SanityLive } from '../sanity/lib/live'
 import { groq } from 'next-sanity'
 import { urlFor } from '../sanity/lib/image'
 
@@ -11,7 +12,7 @@ export { generateMetadata }
 async function fetchGalleryData() {
   try {
     const [imageProjects, videoProjects, muxAssets] = await Promise.all([
-      client.fetch(groq`
+      sanityFetch(groq`
         *[_type == "imageProjects" && featured == true] | order(orderRank) {
           _id,
           name,
@@ -24,7 +25,7 @@ async function fetchGalleryData() {
           }
         }
       `),
-      client.fetch(groq`
+      sanityFetch(groq`
         *[_type == "videoProjects" && featured == true] | order(orderRank) {
           _id,
           name,
@@ -43,7 +44,7 @@ async function fetchGalleryData() {
           coverVideo
         }
       `),
-      client.fetch(groq`
+      sanityFetch(groq`
         *[_type == "mux.videoAsset"] {
           _id,
           playbackId
@@ -121,6 +122,7 @@ export default async function RootLayout({ children }) {
         <ClientLayout initialData={initialData}>
           {children}
         </ClientLayout>
+        <SanityLive />
       </body>
     </html>
   )

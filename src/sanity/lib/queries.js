@@ -1,6 +1,11 @@
 import { cache } from 'react'
 import { groq } from 'next-sanity'
-import { client } from './client'
+import { sanityFetch as liveFetch } from './live'
+
+export const sanityFetch = async (query, params = {}) => {
+  const { data } = await liveFetch({ query, params })
+  return data
+}
 
 const projectQuery = groq`*[
   (_type == "imageProjects" || _type == "videoProjects") &&
@@ -31,8 +36,5 @@ const projectQuery = groq`*[
     _id, name, "slug": slug.current, client->{ title }
   }
 }`
-
-export const sanityFetch = (query, params = {}, revalidate = 60) =>
-  client.fetch(query, params, { next: { revalidate } })
 
 export const getProject = cache((slug) => sanityFetch(projectQuery, { slug }))

@@ -1,4 +1,5 @@
 import { getProject, sanityFetch } from '../../../sanity/lib/queries'
+import { client } from '../../../sanity/lib/client'
 import { groq } from 'next-sanity'
 import { preload } from 'react-dom'
 import ImageGallery from '../../../components/ImageGallery'
@@ -7,7 +8,7 @@ import CreditsOverlay from '../../../components/CreditsOverlay'
 import Link from 'next/link'
 
 export async function generateStaticParams() {
-  const projects = await sanityFetch(
+  const projects = await client.fetch(
     groq`*[_type == "imageProjects" || _type == "videoProjects"]{ "slug": slug.current }`
   )
   return projects.map((p) => ({ slug: p.slug }))

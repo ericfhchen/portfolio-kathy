@@ -1,9 +1,9 @@
-import { client } from '../sanity/lib/client'
+import { sanityFetch } from '../sanity/lib/queries'
 import { groq } from 'next-sanity'
 
 export async function generateMetadata() {
   // Fetch site information from Sanity
-  const siteInfo = await client.fetch(
+  const siteInfo = await sanityFetch(
     groq`*[_type == "siteInfo"][0]{
       title,
       bio,
